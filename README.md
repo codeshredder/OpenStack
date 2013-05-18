@@ -6,9 +6,6 @@ OpenStack-Personal-Experience
 
 Grizzly：
 
-https://github.com/codeshredder/OpenStack-Personal-Experience/blob/master/Grizzly_install.rst
-
-
-
+https://github.com/codeshredder/OpenStack-Personal-Experience/blob/master/OpenStack-Grizzly-Install.rst
 
 
