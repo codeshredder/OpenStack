@@ -71,7 +71,9 @@ Openstack是一个云计算框架。全部搭起来以后可以实现启动虚�
 7. Licensing
 ============
 
+This project is released under the terms of the Apache License.
 
+To view a copy of this license, visit [ http://www.apache.org/licenses/ ].
 
 8. Contacts
 ===========
