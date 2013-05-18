@@ -20,3 +20,10 @@ block storage
 
 http://docs.openstack.org/grizzly/openstack-block-storage/admin/content/
 
+
+openstack代码
+
+https://github.com/openstack
+
+
+
