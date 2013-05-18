@@ -39,7 +39,7 @@ Table of Contents
 ::
 
   0. What is it?
-  1. Requirements
+  1. Overview
   2. Controller Node
   3. Network Node
   4. Compute Node
@@ -54,8 +54,13 @@ Table of Contents
 It is for someone who want an easy way to create your own OpenStack platform. 
 
 
-1. Requirements
+1. Overview
 ====================
+
+penstack是一个云计算框架。全部搭起来以后可以实现启动虚拟机，实现虚拟机之间以及虚拟机和外网之间的通讯，实现虚拟机的虚拟存储的分配和挂接。并且对虚拟的管理可以通过web来实现。
+
+它包括以下几个重要组件
+:Nova: 
 
 
 
