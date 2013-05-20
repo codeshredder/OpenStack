@@ -73,14 +73,11 @@ Openstack是一个云计算框架。全部搭起来以后可以实现启动虚�
 狭义上的Openstack本身可以看成一个管理框架，大部分代码用python编写。具体的功能需要用到各种开源组件，比如数据库的mysql，虚拟机的kvm，网络的openvswitch，存储的open-iscsi,iscsitarget等。
 
 因此，对openstack的安装配置也分为2个部分，
-
 一个是openstack各组件的配置，如nova.conf,api-paste.ini等。
-
 另一部分就是功能组件本身的一些配置。一些是配置文件的如/etc/default/iscsitarget，另一些是通过组件的配置命令，如ietadm，iscsiadm等。其实从代码中也可以看到，openstack除了自身框架代码外，还有很多一部分driver代码，最终都会调用具体命令来完成功能。
 例如，硬盘操作。在openstack中可以归纳到4个命令，create，delete，attach，deattch。create分解到具体命令，可能是先调用lvcreate创建lv，然后使用ietadm创建iscsi target，然后调用iscsiadm挂接target。
 
 希望通过以上的一些原理描述，有助于对后面的安装配置过程的理解。
-
 
 2. Requirements
 ============
@@ -90,11 +87,13 @@ Openstack是一个云计算框架。全部搭起来以后可以实现启动虚�
 :Control Node: eth0 (10.10.10.1), eth1 (192.168.0.1)
 :Network Node: eth0 (10.10.10.2), eth1 (192.168.0.2), eth2 (192.168.1.1)
 :Compute Node: eth0 (10.10.10.3), eth1 (192.168.0.3)
-:Compute Node: eth0 (10.10.10.4), eth1 (192.168.0.4)
+:Volume Node: eth0 (10.10.10.4), eth1 (192.168.0.4)
 
 * 10.10.10.x是管理网络。只是方便用于ssh登陆到各个Node配置用。其中只有Control Node是必须的，因为需要以此IP访问web。
 * 192.168.0.x是内部网络。用于Openstack内部各个Node之间互通。
 * 192.168.1.x是VM网络。用于VM之间和VM对外通讯用。VM分配的IP地址在此网络中。
+
+* 这里把常用能分布式的部分分出来，包括网络，计算，存储，在此基础上，如果想合在一起只要合并配置即可。相对来说，分比合难。
 
 3. Controller Node
 ============
