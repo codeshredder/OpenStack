@@ -40,13 +40,14 @@ Table of Contents
 
   0. What is it?
   1. Overview
-  2. Controller Node
-  3. Network Node
-  4. Compute Node
-  5. Storage Node
-  6. Start VM
-  7. Licensing
-  8. Contacts
+  2. Requirements
+  3. Controller Node
+  4. Network Node
+  5. Compute Node
+  6. Storage Node
+  7. Start VM
+  8. Licensing
+  9. Contacts
 
 0. What is it?
 ==============
@@ -68,14 +69,38 @@ Openstack是一个云计算框架。全部搭起来以后可以实现启动虚�
 :cinder: 负责虚拟机的块设备存储的管理。通俗的讲就是为虚拟机分配硬盘
 :horizon: 提供一个web管理页面，这样不少需要命令行的操作，可以直观的在web上实现。
 
-7. Licensing
+狭义上的Openstack本身可以看成一个管理框架，大部分代码用python编写。具体的功能需要用到各种开源组件，比如数据库的mysql，虚拟机的kvm，网络的openvswitch，存储的open-iscsi,iscsitarget等。
+因此，对openstack的安装配置也分为2个部分，
+一个是openstack各组件的配置，如nova.conf,api-paste.ini等。
+另一部分就是功能组件本身的一些配置。一些是配置文件的如/etc/default/iscsitarget，另一些是通过组件的配置命令，如ietadm，iscsiadm等。其实从代码中也可以看到，openstack除了自身框架代码外，还有很多一部分driver代码，最终都会调用具体命令来完成功能。
+例如，硬盘操作。在openstack中可以归纳到4个命令，create，delete，attach，deattch。create分解到具体命令，可能是先调用lvcreate创建lv，然后使用ietadm创建iscsi target，然后调用iscsiadm挂接target。
+
+希望通过以上的一些原理描述，有助于对后面的安装配置过程的理解。
+
+
+2. Requirements
+============
+
+
+:Node Role: Manage NIC: Internel NIC: External NIC
+:Control Node: eth0 (10.10.10.1): eth1 (192.168.0.1)
+:Network Node: eth0 (10.10.10.2): eth1 (192.168.0.2): eth2 (192.168.1.1)
+:Compute Node: eth0 (10.10.10.3): eth1 (192.168.0.3)
+:Compute Node: eth0 (10.10.10.4): eth1 (192.168.0.4)
+
+3. Controller Node
+============
+
+
+
+8. Licensing
 ============
 
 This project is licensed under Creative Commons License.
 
 To view a copy of this license, visit [ http://creativecommons.org/licenses/ ].
 
-8. Contacts
+9. Contacts
 ===========
 
 Cloud  : evilforce@gmail.com
