@@ -71,8 +71,11 @@ Openstack是一个云计算框架。全部搭起来以后可以实现启动虚�
 
 
 狭义上的Openstack本身可以看成一个管理框架，大部分代码用python编写。具体的功能需要用到各种开源组件，比如数据库的mysql，虚拟机的kvm，网络的openvswitch，存储的open-iscsi,iscsitarget等。
+
 因此，对openstack的安装配置也分为2个部分，
+
 一个是openstack各组件的配置，如nova.conf,api-paste.ini等。
+
 另一部分就是功能组件本身的一些配置。一些是配置文件的如/etc/default/iscsitarget，另一些是通过组件的配置命令，如ietadm，iscsiadm等。其实从代码中也可以看到，openstack除了自身框架代码外，还有很多一部分driver代码，最终都会调用具体命令来完成功能。
 例如，硬盘操作。在openstack中可以归纳到4个命令，create，delete，attach，deattch。create分解到具体命令，可能是先调用lvcreate创建lv，然后使用ietadm创建iscsi target，然后调用iscsiadm挂接target。
 
