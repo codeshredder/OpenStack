@@ -96,6 +96,7 @@ Openstack是一个云计算框架。全部搭起来以后可以实现启动虚�
 
 
 本例把常用能分布式的部分分出来，包括网络，计算，存储，在此基础上，如果想合在一起只要合并配置即可。相对来说，分比合难。
+
 安装步骤几乎都是抄的
 https://github.com/mseknibilel/OpenStack-Grizzly-Install-Guide。
 不过其实人家大部分也是抄的官方文档
