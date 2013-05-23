@@ -90,9 +90,11 @@ http://docs.openstack.org/grizzly/basic-install/apt/content/。
 本文的主要目的和价值在于对mseknibilel的注解以及原理说明，因为自己开始学习的时候也是看这几个文档，但总有某些细节没说清楚，
 浪费了不少时间。顺便加一些自己的补充，比如cinder的部分。
 
+openstack的安装首先必须要确定组网，现根据需求确定了组网以后，后续的配置才好以此调整。
+我的组网如下：
 
 :Node Role: NICs
-:Control Node: eth0 (10.10.10.1), eth1 (192.168.0.1)
+:Control Node: eth0 (10.10.10.10), eth1 (192.168.0.1)
 :Network Node: eth0 (optional), eth1 (192.168.0.2), eth2 (192.168.100.1)
 :Compute Node: eth0 (optional), eth1 (192.168.0.3)
 :Storage Node: eth0 (optional), eth1 (192.168.0.4)
@@ -122,6 +124,8 @@ http://docs.openstack.org/grizzly/basic-install/apt/content/。
    apt-get install -y ubuntu-cloud-keyring 
    echo deb http://ubuntu-cloud.archive.canonical.com/ubuntu precise-updates/grizzly main >> /etc/apt/sources.list.d/grizzly.list
 
+增加源，这个源是针对12.04(precise)的。如果是13.04就不需要了。
+
 * Update your system::
 
    apt-get update -y
@@ -131,20 +135,22 @@ http://docs.openstack.org/grizzly/basic-install/apt/content/。
 3.2. Networking
 ------------
 
+网络是外围配置的第一步。不同发行版的修改方式不同。下面这是ubuntu中修改/etc/network/interfaces文件。
+
 * Only one NIC should have an internet access::
 
    #For Exposing OpenStack API over the internet
    auto eth1
    iface eth1 inet static
-   address 192.168.100.51
+   address 10.10.10.10
    netmask 255.255.255.0
-   gateway 192.168.100.1
+   gateway 10.10.10.1
    dns-nameservers 8.8.8.8
 
    #Not internet connected(used for OpenStack management)
    auto eth0
    iface eth0 inet static
-   address 10.10.10.51
+   address 192.168.0.1
    netmask 255.255.255.0
 
 * Restart the networking service::
