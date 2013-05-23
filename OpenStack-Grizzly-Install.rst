@@ -160,25 +160,19 @@ openstack的安装首先必须要确定组网，现根据需求确定了组网�
 3.3. MySQL & RabbitMQ
 ------------
 
+Openstack中很多位置有多个组件可以替代，比如数据库可以用mysql或者sqllite。AMQP也就是消息通讯用的，可以用RabbitMQ或者Qpid。
+选择不同的组件配置时不一样的，所以一定要注意。这里选择了Mysql。后续配置中关联的配置就要注意sql_connection=和connection=这样的配置。
+
 * Install MySQL::
 
    apt-get install -y mysql-server python-mysqldb
+
+安装过程中会要求输入mysql密码。这个在后面mysql -u root -p后会要求输入。
 
 * Configure mysql to accept all incoming requests::
 
    sed -i 's/127.0.0.1/0.0.0.0/g' /etc/mysql/my.cnf
    service mysql restart
-
-3.4. RabbitMQ
--------------------
-
-* Install RabbitMQ::
-
-   apt-get install -y rabbitmq-server 
-
-* Install NTP service::
-
-   apt-get install -y ntp
 
 * Create these databases::
 
@@ -205,6 +199,22 @@ openstack的安装首先必须要确定组网，现根据需求确定了组网�
    GRANT ALL ON cinder.* TO 'cinderUser'@'%' IDENTIFIED BY 'cinderPass';
 
    quit;
+
+这里是把需要用到的数据库，先手动创建。用户名密码在后面各个sql_connection配置中会反复出现。
+
+3.4. RabbitMQ
+-------------------
+
+AMQP选择了RabbitMQ，后面配置中看到的rabbit_host就和这个相关。如果选择Qpid，就要找Qpid字样的。在openstack代码中有个类似nova.conf.sample的文件，里面有比较全的配置项，供参考。
+
+* Install RabbitMQ::
+
+   apt-get install -y rabbitmq-server 
+
+* Install NTP service::
+
+   apt-get install -y ntp
+
  
 3.5. Others
 -------------------
@@ -220,8 +230,11 @@ openstack的安装首先必须要确定组网，现根据需求确定了组网�
    # To save you from rebooting, perform the following
    sysctl net.ipv4.ip_forward=1
 
+
 3.6. Keystone
 -------------------
+
+keystone主要用于组件件通讯认证用的。这部分也是比较复杂。所以基于原原本本照抄。毕竟这部分不是我关注的重点，能跑就行。。
 
 * Start by the keystone packages::
 
@@ -229,45 +242,60 @@ openstack的安装首先必须要确定组网，现根据需求确定了组网�
 
 * Adapt the connection attribute in the /etc/keystone/keystone.conf to the new database::
 
-   connection = mysql://keystoneUser:keystonePass@10.10.10.51/keystone
+   connection = mysql://keystoneUser:keystonePass@192.168.1.1/keystone
 
 * Restart the identity service then synchronize the database::
 
    service keystone restart
    keystone-manage db_sync
 
-* Fill up the keystone database using the two scripts available in the `Scripts folder <https://github.com/mseknibilel/OpenStack-Grizzly-Install-Guide/tree/OVS_MultiNode/KeystoneScripts>`_ of this git repository::
+* Fill up the keystone database using the two scripts available in the `Scripts folder <https://github.com/codeshredder/OpenStack-Experience/tree/master/OpenStack-Grizzly-Install>`_ of this git repository::
 
    #Modify the **HOST_IP** and **EXT_HOST_IP** variables before executing the scripts
    
-   wget https://raw.github.com/mseknibilel/OpenStack-Grizzly-Install-Guide/OVS_MultiNode/KeystoneScripts/keystone_basic.sh
-   wget https://raw.github.com/mseknibilel/OpenStack-Grizzly-Install-Guide/OVS_MultiNode/KeystoneScripts/keystone_endpoints_basic.sh
-
    chmod +x keystone_basic.sh
    chmod +x keystone_endpoints_basic.sh
 
    ./keystone_basic.sh
    ./keystone_endpoints_basic.sh
 
+为了防止原po删除或者修改，我也抄了一份。放在同级目录下。。
+
 * Create a simple credential file and load it so you won't be bothered later::
 
-   nano creds
+   vi creds
 
    #Paste the following:
    export OS_TENANT_NAME=admin
    export OS_USERNAME=admin
    export OS_PASSWORD=admin_pass
-   export OS_AUTH_URL="http://192.168.100.51:5000/v2.0/"
+   export OS_AUTH_URL="http://10.10.10.10:5000/v2.0/"
 
    # Load it:
    source creds
+
+这里是设置环境变量用的，openstack相关的一些配置和查询命令，需要有一定的环境变量才能运行，主要是用于指示操作用户的。
+上面表示是admin用户。如下面这个keystone命令，需要admin用户才能运行。
+以后建立租户(tenant)的时候，针对不同的租户用户也需要修改个类似的文件。比如在租户用户下创建了一个volume，使用租户环境变量cinder list可以看到。如果用admin的环境变量就看不到。
 
 * To test Keystone, we use a simple CLI command::
 
    keystone user-list
 
+   +----------------------------------+-----------+---------+---------------------+
+   |                id                |    name   | enabled |        email        |
+   +----------------------------------+-----------+---------+---------------------+
+   | b1676e4df7c6482189187aca5785246c |   admin   |   True  |   admin@domain.com  |
+   | 464c8c6ecac24ae8b2bdd192ee8e4b72 |   cinder  |   True  |  cinder@domain.com  |
+   | 75a1721b09df42fda648de7ad474f9bd |   glance  |   True  |  glance@domain.com  |
+   | 28b053932b484b49bbc3f2af97dd0f2b |    nova   |   True  |   nova@domain.com   |
+   | 3e8e411b4bea4a95bb4bd83ecc287268 |  quantum  |   True  |  quantum@domain.com |
+   +----------------------------------+-----------+---------+---------------------+
+
 3.7. Glance
 -------------------
+
+Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需要用到镜像。这个就是用来把可用的镜像输入到Openstack中，供nova起虚拟机时用。
 
 * We Move now to Glance installation::
 
@@ -278,7 +306,7 @@ openstack的安装首先必须要确定组网，现根据需求确定了组网�
    [filter:authtoken]
    paste.filter_factory = keystoneclient.middleware.auth_token:filter_factory
    delay_auth_decision = true
-   auth_host = 10.10.10.51
+   auth_host = 192.168.1.1
    auth_port = 35357
    auth_protocol = http
    admin_tenant_name = service
@@ -289,7 +317,7 @@ openstack的安装首先必须要确定组网，现根据需求确定了组网�
 
    [filter:authtoken]
    paste.filter_factory = keystoneclient.middleware.auth_token:filter_factory
-   auth_host = 10.10.10.51
+   auth_host = 192.168.1.1
    auth_port = 35357
    auth_protocol = http
    admin_tenant_name = service
@@ -298,7 +326,7 @@ openstack的安装首先必须要确定组网，现根据需求确定了组网�
 
 * Update /etc/glance/glance-api.conf with::
 
-   sql_connection = mysql://glanceUser:glancePass@10.10.10.51/glance
+   sql_connection = mysql://glanceUser:glancePass@192.168.1.1/glance
 
 * And::
 
@@ -307,7 +335,7 @@ openstack的安装首先必须要确定组网，现根据需求确定了组网�
    
 * Update the /etc/glance/glance-registry.conf with::
 
-   sql_connection = mysql://glanceUser:glancePass@10.10.10.51/glance
+   sql_connection = mysql://glanceUser:glancePass@192.168.1.1/glance
 
 * And::
 
@@ -324,11 +352,26 @@ openstack的安装首先必须要确定组网，现根据需求确定了组网�
 
 * To test Glance, upload the cirros cloud image directly from the internet::
 
-   glance image-create --name myFirstImage --is-public true --container-format bare --disk-format qcow2 --location https://launchpad.net/cirros/trunk/0.3.0/+download/cirros-0.3.0-x86_64-disk.img
+   glance image-create --name cirros --is-public true --container-format bare --disk-format qcow2 --location https://launchpad.net/cirros/trunk/0.3.0/+download/cirros-0.3.0-x86_64-disk.img
+
+如果不好联网可以先下下来，再使用命令::
+
+   glance image-create --name cirros --is-public true --container-format bare --disk-format qcow2 --location /home/cirros-0.3.0-x86_64-disk.img
+
+目前比较好用的镜像文件有f16-x86_64-openstack-sda.qcow2和cirros-0.3.0-x86_64-disk.img，请自行搜索下载。
 
 * Now list the image to see what you have just uploaded::
 
    glance image-list
+   
+   +--------------------------------------+--------+-------------+------------------+-----------+--------+
+   | ID                                   | Name   | Disk Format | Container Format | Size      | Status |
+   +--------------------------------------+--------+-------------+------------------+-----------+--------+
+   | 4183788b-c581-4286-9ace-781c84496c68 | cirros | qcow2       | bare             | 9761280   | active |
+   | e14a5b52-e23a-459f-a881-78edd063dc7a | fc     | qcow2       | bare             | 213581824 | active |
+   +--------------------------------------+--------+-------------+------------------+-----------+--------+
+
+另外horizon装好之后也可以通过web来添加镜像。比命令方便直观。
 
 3.8. Quantum
 -------------------
