@@ -52,7 +52,7 @@ Table of Contents
 0. What is it?
 ==============
 
-It is for someone who want an easy way to create your own OpenStack platform. 
+It is for somebody who want an easy way to create a private OpenStack test environment. 
 
 
 1. Overview
