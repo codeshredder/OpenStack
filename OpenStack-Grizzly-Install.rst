@@ -696,6 +696,13 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
    #br-ex is used to make to VM accessible from the internet
    ovs-vsctl add-br br-ex
 
+
+由于网络组件选择了openvswitch，所以ovs需要配置一些东西。这里br-int,br-tun,br-ex是有门道的，建议不修改。
+因为有些配置项有默认值，所以有些攻略没有提到，导致理解上会有断链。
+br-int,br-tun在/etc/quantum/plugins/openvswitch/ovs_quantum_plugin.ini提到。
+br-ex在/etc/quantum/l3_agent.ini提到。
+
+
 4.4. Quantum
 ------------------
 
@@ -707,7 +714,7 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
 
    [filter:authtoken]
    paste.filter_factory = keystoneclient.middleware.auth_token:filter_factory
-   auth_host = 10.10.10.51
+   auth_host = 192.168.1.1
    auth_port = 35357
    auth_protocol = http
    admin_tenant_name = service
@@ -718,7 +725,7 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
 
    #Under the database section
    [DATABASE]
-   sql_connection = mysql://quantumUser:quantumPass@10.10.10.51/quantum
+   sql_connection = mysql://quantumUser:quantumPass@192.168.1.1/quantum
 
    #Under the OVS section
    [OVS]
@@ -726,24 +733,28 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
    tunnel_id_ranges = 1:1000
    integration_bridge = br-int
    tunnel_bridge = br-tun
-   local_ip = 10.20.20.52
+   local_ip = 192.168.1.2
    enable_tunneling = True
 
    #Firewall driver for realizing quantum security group function
    [SECURITYGROUP]
    firewall_driver = quantum.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver
 
+
+ovs的tenant_netwoke_type有多种选项，这里选择gre通道方式。因为网络结构是分布式的，由nework node加上各个node的quantum_agent组成。
+关注local_ip。
+
 * Update /etc/quantum/metadata_agent.ini::
    
    # The Quantum user information for accessing the Quantum API.
-   auth_url = http://10.10.10.51:35357/v2.0
+   auth_url = http://192.168.1.1:35357/v2.0
    auth_region = RegionOne
    admin_tenant_name = service
    admin_user = quantum
    admin_password = service_pass
 
    # IP address used by Nova metadata server
-   nova_metadata_ip = 10.10.10.51
+   nova_metadata_ip = 192.168.1.1
 
    # TCP Port used by Nova metadata server
    nova_metadata_port = 8775
@@ -752,18 +763,20 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
 
 * Make sure that your rabbitMQ IP in /etc/quantum/quantum.conf is set to the controller node::
 
-   rabbit_host = 10.10.10.51
+   rabbit_host = 192.168.1.1
 
    #And update the keystone_authtoken section
 
    [keystone_authtoken]
-   auth_host = 10.10.10.51
+   auth_host = 192.168.1.1
    auth_port = 35357
    auth_protocol = http
    admin_tenant_name = service
    admin_user = quantum
    admin_password = service_pass
    signing_dir = /var/lib/quantum/keystone-signing
+
+注意rabbit_host，无处不在的rabbitmq。
 
 * Edit /etc/sudoers to give it full access like this (This is unfortunatly mandatory) ::
 
@@ -787,6 +800,8 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
    up ip link set $IFACE promisc on
    down ip link set $IFACE promisc off
    down ifconfig $IFACE down
+
+由于eth2加入到br-ex后，即使有IP网络也不会通，所以这里设置为空。如果还需要对外通讯，需要把通过ifconfig br-ex或者下面提到的修改/etc/network/interfaces。类似网口变成br-ex。
 
 * Add the eth2 to the br-ex::
 
