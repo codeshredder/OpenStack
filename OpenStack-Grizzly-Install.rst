@@ -94,8 +94,8 @@ openstack的安装首先必须要确定组网，现根据需求确定了组网�
 我的组网如下：
 
 :Node Role: NICs
-:Control Node: eth0 (10.10.10.10), eth1 (192.168.1.1)
-:Network Node: eth0 (optional), eth1 (192.168.1.2), eth2 (192.168.100.1)
+:Control Node: eth0 (10.10.10.1), eth1 (192.168.1.1)
+:Network Node: eth0 (optional), eth1 (192.168.1.2), eth2 (192.168.100.100)
 :Compute Node: eth0 (optional), eth1 (192.168.1.3)
 :Storage Node: eth0 (optional), eth1 (192.168.1.4)
 
@@ -142,7 +142,7 @@ openstack的安装首先必须要确定组网，现根据需求确定了组网�
    #For Exposing OpenStack API over the internet
    auto eth1
    iface eth1 inet static
-   address 10.10.10.10
+   address 10.10.10.1
    netmask 255.255.255.0
    gateway 10.10.10.1
    dns-nameservers 8.8.8.8
@@ -269,7 +269,7 @@ keystone主要用于组件件通讯认证用的。这部分也是比较复杂。
    export OS_TENANT_NAME=admin
    export OS_USERNAME=admin
    export OS_PASSWORD=admin_pass
-   export OS_AUTH_URL="http://10.10.10.10:5000/v2.0/"
+   export OS_AUTH_URL="http://10.10.10.1:5000/v2.0/"
 
    # Load it:
    source creds
@@ -478,7 +478,7 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
 
    # Vnc configuration
    novnc_enabled=true
-   novncproxy_base_url=http://10.10.10.10:6080/vnc_auto.html
+   novncproxy_base_url=http://10.10.10.1:6080/vnc_auto.html
    novncproxy_port=6080
    vncserver_proxyclient_address=192.168.1.1
    vncserver_listen=0.0.0.0
@@ -550,7 +550,7 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
    [filter:authtoken]
    paste.filter_factory = keystoneclient.middleware.auth_token:filter_factory
    service_protocol = http
-   service_host = 10.10.10.10
+   service_host = 10.10.10.1
    service_port = 5000
    auth_host = 192.168.1.1
    auth_port = 35357
@@ -606,6 +606,8 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
 
    service apache2 restart; service memcached restart
 
+正常情况下，这时访问 http://10.10.10.1/horizon 就可以看到web界面了。
+用户admin,密码admin_pass。有些可能会报错，因为network,compute,storage节点还没安装。
 
 4. Network Node
 ================
@@ -641,7 +643,7 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
    sed -i 's/server 3.ubuntu.pool.ntp.org/#server 3.ubuntu.pool.ntp.org/g' /etc/ntp.conf
    
    #Set the network node to follow up your conroller node
-   sed -i 's/server ntp.ubuntu.com/server 10.10.10.51/g' /etc/ntp.conf
+   sed -i 's/server ntp.ubuntu.com/server 192.168.1.1/g' /etc/ntp.conf
 
    service ntp restart  
 
@@ -664,19 +666,19 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
    # OpenStack management
    auto eth0
    iface eth0 inet static
-   address 10.10.10.52
+   address 10.10.10.2
    netmask 255.255.255.0
 
    # VM Configuration
    auto eth1
    iface eth1 inet static
-   address 10.20.20.52
+   address 192.168.1.2
    netmask 255.255.255.0
 
    # VM internet Access
    auto eth2
    iface eth2 inet static
-   address 192.168.100.52
+   address 192.168.100.100
    netmask 255.255.255.0
 
 4.3. OpenVSwitch (Part1)
@@ -1073,7 +1075,6 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
    apt-get install -y ubuntu-cloud-keyring 
    echo deb http://ubuntu-cloud.archive.canonical.com/ubuntu precise-updates/grizzly main >> /etc/apt/sources.list.d/grizzly.list
 
-
 * Update your system::
 
    apt-get update -y
@@ -1108,9 +1109,34 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
    # To save you from rebooting, perform the following
    sysctl net.ipv4.ip_forward=1
 
+
+下面这部分理论上应该是不需要的。本节点只要安装后面章节的内容应该就可以了。但是通讯相关的如rabbitMQ部分似乎并没有被apt-get自动包含到。
+经过几次试验，也没有找到需要安装什么包才能让通讯畅通。最后只能参考compute的方案。只安装compute节点的包，但不配置。
+仅是为了解决storage node和control node的通讯问题::
+
+   apt-get install -y cpu-checker
+   apt-get install -y kvm libvirt-bin pm-utils
+   apt-get install -y openvswitch-switch openvswitch-datapath-dkms
+   apt-get -y install quantum-plugin-openvswitch-agent
+   apt-get install -y nova-compute-kvm
+
+
 6.2. Networking
 ------------
 
+* Perform the following::
+   
+   # OpenStack management
+   auto eth0
+   iface eth0 inet static
+   address 10.10.10.4
+   netmask 255.255.255.0
+
+   # VM Configuration
+   auto eth1
+   iface eth1 inet static
+   address 192.168.1.4
+   netmask 255.255.255.0
 
 
 6.3. Cinder
@@ -1118,7 +1144,7 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
 
 * Install the required packages::
 
-   apt-get install -y iscsitarget-dkms iscsitarget cinder-volume
+   apt-get install -y cinder-volume iscsitarget iscsitarget-dkms
 
 由于openstack默认装tgt。所以这里安装iet时可能会冲突。
 需要先用lsof -i:3260检查端口。如果tgt已经运行，则需要先停止tgt服务再安装。最终要保证iet正确运行。
