@@ -26,7 +26,7 @@ openstack是一个管理套件，业务功能部分主要还是由各个开源�
 按照节点来分。target作为一个存储节点，而initiator和kvm组成一个计算节点。
 
 
-2. Storage Target Node
+2. ISCSI Target Node
 ====================
 
 安装iscsitarget iscsitarget-dkms(target部分)。
@@ -74,7 +74,7 @@ openstack是一个管理套件，业务功能部分主要还是由各个开源�
 
 制作一个512M的磁盘镜像::
 
-   #dd if=/dev/zero of=/disk.img bs=512 count=1000000 
+   #dd if=/dev/zero of=/home/disk.img bs=512 count=1000000 
 
 
 创建iet分区::
@@ -83,7 +83,7 @@ openstack是一个管理套件，业务功能部分主要还是由各个开源�
    
    #ietadm --op new --tid=1 --lun=1 --params Path=/dev/cinder-volumes/lvol0,Type=fileio
    or
-   #ietadm --op new --tid=1 --lun=1 --params Path=/disk.img,Type=fileio
+   #ietadm --op new --tid=1 --lun=1 --params Path=/home/disk.img,Type=fileio
 
 重启iet服务，上面的配置会丢失::
 
@@ -105,7 +105,7 @@ openstack是一个管理套件，业务功能部分主要还是由各个开源�
 服务正常运行时，target端fdisk -l能看到刚才新建立的分区。
 
 
-3. Storage Initiator Node
+3. ISCSI Initiator Node
 ====================
 
 主要安装open-iscsi（initiator部分）。
@@ -146,7 +146,7 @@ discovery之后可以看到建立的node::
    #iscsiadm -m node -o delete -T iqn.foo.example
 
 
-4. Compute Node
+4. Compute Node (together with Initiator Node)
 ====================
 
 主要安装kvm，由于initiator需要直接提供存储给kvm,所以需要和initiator安装在一个node上。
