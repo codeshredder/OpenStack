@@ -1,4 +1,3 @@
-
 ==========================================================
   OpenStack Cinder Principle
 ==========================================================
@@ -17,9 +16,12 @@ openstack是一个管理套件，业务功能部分主要还是由各个开源�
 根据cinder的使用情况，以及代码分析。猜测出cinder的一些工作原理。并试图将组件剥离出openstack。
 
 
-首先一个网络存储系统，需要的组件有
+首先一个网络存储系统，需要的组件有:
+
 1）存储使用者。指使用存储的KVM组件
-2）存储提供者。包括直接提供给虚拟机使用的存储（initiator部分）以及具体的存储物理介质管理(target部分)。target的物理存储可以使用LVM
+
+2）存储提供者。包括直接提供给虚拟机使用的存储（initiator部分）以及具体的存储物理介质管理(target部分)。target的物理存储可以使用LVM。
+
 
 按照节点来分。target作为一个存储节点，而initiator和kvm组成一个计算节点。
 
@@ -28,65 +30,77 @@ openstack是一个管理套件，业务功能部分主要还是由各个开源�
 ====================
 
 安装iscsitarget iscsitarget-dkms(target部分)。
+
 (target程序可以选择tgt或者iet，本例使用iet。如果是tgt，命令会有不同，如tgt-admin -s等)
 
-安装LVM
-#apt-get install lvm2
+安装LVM::
 
-使用物理分区作为vg
-#pvcreate /dev/sda4
-#vgcreate cinder-volumes /dev/sda4
-安装target程序
+   #apt-get install lvm2
 
-#apt-get install iscsitarget iscsitarget-dkms
+使用物理分区作为vg::
 
-sed -i 's/false/true/g' /etc/default/iscsitarget
+   #pvcreate /dev/sda4
+   #vgcreate cinder-volumes /dev/sda4
 
-service iscsitarget start
+安装target程序::
 
-查看target服务是否正常
-#lsof -i:3260
-COMMAND  PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
-ietd    7885 root    7u  IPv4  14886      0t0  TCP *:3260 (LISTEN)
-ietd    7885 root    8u  IPv6  14887      0t0  TCP *:3260 (LISTEN)
+   #apt-get install iscsitarget iscsitarget-dkms
+   
+   sed -i 's/false/true/g' /etc/default/iscsitarget
+   
+   service iscsitarget start
+
+查看target服务是否正常::
+
+   #lsof -i:3260
+   COMMAND  PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+   ietd    7885 root    7u  IPv4  14886      0t0  TCP *:3260 (LISTEN)
+   ietd    7885 root    8u  IPv6  14887      0t0  TCP *:3260 (LISTEN)
 
 (有时候tgt和iet都安装时会有冲突，需要先把tgt停掉。)
 
 
 制作硬盘
-1）lv方式
-# lvcreate -L 2G cinder-volumes
-  Logical volume "lvol0" created
 
-# ls /dev/cinder-volumes/lvol0
-/dev/cinder-volumes/lvol0
+1）lv方式::
+
+   #lvcreate -L 2G cinder-volumes
+   Logical volume "lvol0" created
+   
+   #ls /dev/cinder-volumes/lvol0
+   /dev/cinder-volumes/lvol0
 
 2）文件方式
-制作一个512M的磁盘镜像 
-dd if=/dev/zero of=/disk.img bs=512 count=1000000 
+
+制作一个512M的磁盘镜像::
+
+   #dd if=/dev/zero of=/disk.img bs=512 count=1000000 
 
 
-创建iet分区
-#ietadm --op new --tid=1 --params Name=iqn.foo.example
-#ietadm --op new --tid=1 --lun=1 --params Path=/dev/cinder-volumes/lvol0,Type=fileio
-或者
-#ietadm --op new --tid=1 --lun=1 --params Path=/disk.img,Type=fileio
+创建iet分区::
 
-重启iet服务，上面的配置会丢失
-#/etc/init.d/iscsitarget restart
+   #ietadm --op new --tid=1 --params Name=iqn.foo.example
+   
+   #ietadm --op new --tid=1 --lun=1 --params Path=/dev/cinder-volumes/lvol0,Type=fileio
+   or
+   #ietadm --op new --tid=1 --lun=1 --params Path=/disk.img,Type=fileio
 
-查看当前虚拟单元清单。
-#cat /proc/net/iet/volume 
-tid:1 name:iqn.foo.example
-        lun:1 state:0 iotype:fileio iomode:wt blocks:4194304 blocksize:512 path:/dev/cinder-volumes/lvol0
+重启iet服务，上面的配置会丢失::
 
-如果initiator已经连上，可以查看连接状态命令
-# cat /proc/net/iet/session
-tid:1 name:iqn.foo.example
-        sid:562949990973952 initiator:iqn.1993-08.org.debian:01:5d5f7d6e2951
-                cid:0 ip:192.168.1.5 state:active hd:none dd:none
-        sid:281474997486080 initiator:iqn.1993-08.org.debian:01:5d5f7d6e2951
-                cid:0 ip:10.141.123.199 state:active hd:none dd:none
+   #/etc/init.d/iscsitarget restart
+
+查看当前虚拟单元清单::
+
+   #cat /proc/net/iet/volume 
+   tid:1 name:iqn.foo.example
+           lun:1 state:0 iotype:fileio iomode:wt blocks:4194304 blocksize:512 path:/dev/cinder-volumes/lvol0
+
+如果initiator已经连上，可以查看连接状态命令::
+
+   #cat /proc/net/iet/session
+   tid:1 name:iqn.foo.example
+           sid:562949990973952 initiator:iqn.1993-08.org.debian:01:5d5f7d6e2951
+                   cid:0 ip:192.168.1.5 state:active hd:none dd:none
 
 服务正常运行时，target端fdisk -l能看到刚才新建立的分区。
 
@@ -96,37 +110,44 @@ tid:1 name:iqn.foo.example
 
 主要安装open-iscsi（initiator部分）。
 
-安装initiator
-#apt-get install open-iscsi
+安装initiator::
 
-手动发现target。输入target的ip，正常情况能看到target建立的硬盘。也可以在ip后面加:3206指定端口，一般默认不用加。
-#iscsiadm -m discovery -t sendtargets -p 192.168.1.5
+   #apt-get install open-iscsi
 
-discovery之后可以看到建立的node
-#iscsiadm -m node
-192.168.1.5:3260,1 iqn.foo.example
+手动发现target。输入target的ip，正常情况能看到target建立的硬盘。也可以在ip后面加:3206指定端口，一般默认不用加::
 
-登入
-#iscsiadm -m node -T iqn.foo.example -l
+   #iscsiadm -m discovery -t sendtargets -p 192.168.1.5
 
-正确登陆之后，通过fdisk就能看到远程硬盘。
-#fdisk -l
+discovery之后可以看到建立的node::
 
-查看建立的session
-#iscsiadm -m session
-tcp: [2] 192.168.1.5:3260,1 iqn.foo.example
+   #iscsiadm -m node
+   192.168.1.5:3260,1 iqn.foo.example
+
+登入::
+
+   #iscsiadm -m node -T iqn.foo.example -l
+
+正确登陆之后，通过fdisk就能看到远程硬盘::
+
+   #fdisk -l
+
+查看建立的session::
+
+   #iscsiadm -m session
+   tcp: [2] 192.168.1.5:3260,1 iqn.foo.example
 
 
-退出
-#iscsiadm -m node -T iqn.foo.example -u
+退出::
 
-删除节点。需要先退出再删除。
-#iscsiadm -m node -o delete -T iqn.foo.example
+   #iscsiadm -m node -T iqn.foo.example -u
+
+删除节点(需要先退出再删除)::
+
+   #iscsiadm -m node -o delete -T iqn.foo.example
 
 
 4. Compute Node
 ====================
-
 
 主要安装kvm，由于initiator需要直接提供存储给kvm,所以需要和initiator安装在一个node上。
 
