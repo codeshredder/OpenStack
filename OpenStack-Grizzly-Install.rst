@@ -94,15 +94,15 @@ openstack的安装首先必须要确定组网，现根据需求确定了组网�
 我的组网如下：
 
 :Node Role: NICs
-:Control Node: eth0 (10.10.10.10), eth1 (192.168.0.1)
-:Network Node: eth0 (optional), eth1 (192.168.0.2), eth2 (192.168.100.1)
-:Compute Node: eth0 (optional), eth1 (192.168.0.3)
-:Storage Node: eth0 (optional), eth1 (192.168.0.4)
+:Control Node: eth0 (10.10.10.10), eth1 (192.168.1.1)
+:Network Node: eth0 (optional), eth1 (192.168.1.2), eth2 (192.168.100.1)
+:Compute Node: eth0 (optional), eth1 (192.168.1.3)
+:Storage Node: eth0 (optional), eth1 (192.168.1.4)
 
 * eth0的10.10.10.x是管理网络。只是方便用于ssh登陆到各个Node配置用。其中只有Control Node是必须的，因为需要以此IP访问web。
 * eth1的192.168.0.x是内部网络。用于Openstack内部各个Node之间互通。原文内部网络有2个，个人觉得合成一个比较简单。
 * eth2的192.168.100.x是外部网络。VM如果要和外网通，需要用到。
-* 此外不在物理网络设置之内的还有VM网络，用于VM之间的通讯。VM分配的IP地址在此网络中。我们可以暂定192.168.200.x。
+* 此外不在物理网络设置之内的还有VM网络，用于VM之间的通讯。VM分配的IP地址在此网络中。我们可以暂定50.50.50.x。
 
 
 本例把常用能分布式的部分分出来，包括网络，计算，存储，在此基础上，如果想合在一起只要合并配置即可，合比分容易的多。
@@ -150,7 +150,7 @@ openstack的安装首先必须要确定组网，现根据需求确定了组网�
    #Not internet connected(used for OpenStack management)
    auto eth0
    iface eth0 inet static
-   address 192.168.0.1
+   address 192.168.1.1
    netmask 255.255.255.0
 
 * Restart the networking service::
@@ -376,6 +376,8 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
 3.8. Quantum
 -------------------
 
+网络的组件也有多种，这里选择的是openvswitch。如果选择linuxbridge，配置就会不一样。比如修改的plugins文件不同。
+
 * Install the Quantum server and the OpenVSwitch package collection::
 
    apt-get install -y quantum-server
@@ -384,7 +386,7 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
 
    #Under the database section
    [DATABASE]
-   sql_connection = mysql://quantumUser:quantumPass@10.10.10.51/quantum
+   sql_connection = mysql://quantumUser:quantumPass@192.168.1.1/quantum
 
    #Under the OVS section
    [OVS]
@@ -396,11 +398,13 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
    [SECURITYGROUP]
    firewall_driver = quantum.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver
 
+需要注意的是[OVS]和下面的要放在一起。默认文件末尾有一些参考配置。但是上面[OVS]是打开的。建议#掉，再在末尾添加。
+
 * Edit /etc/quantum/api-paste.ini ::
 
    [filter:authtoken]
    paste.filter_factory = keystoneclient.middleware.auth_token:filter_factory
-   auth_host = 10.10.10.51
+   auth_host = 192.168.1.1
    auth_port = 35357
    auth_protocol = http
    admin_tenant_name = service
@@ -409,8 +413,9 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
 
 * Update the /etc/quantum/quantum.conf::
 
+   core_plugin = quantum.plugins.openvswitch.ovs_quantum_plugin.OVSQuantumPluginV2
    [keystone_authtoken]
-   auth_host = 10.10.10.51
+   auth_host = 192.168.1.1
    auth_port = 35357
    auth_protocol = http
    admin_tenant_name = service
@@ -418,9 +423,12 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
    admin_password = service_pass
    signing_dir = /var/lib/quantum/keystone-signing
 
+这里需要指定使用的plugin。默认是Openvswitch。原文因为是默认所以没写。如果使用linuxbridge，这里要改，并且plugin的文件也要对应修改。
+
 * Restart the quantum server::
 
    service quantum-server restart
+
 
 3.9. Nova
 ------------------
