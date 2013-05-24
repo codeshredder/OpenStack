@@ -152,5 +152,5 @@ discovery之后可以看到建立的node::
 主要安装kvm，由于initiator需要直接提供存储给kvm,所以需要和initiator安装在一个node上。
 
 
-
+（to be continue...）
 
