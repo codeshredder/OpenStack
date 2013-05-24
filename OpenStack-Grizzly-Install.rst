@@ -437,11 +437,13 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
 
    apt-get install -y nova-api nova-cert novnc nova-consoleauth nova-scheduler nova-novncproxy nova-doc nova-conductor
 
+注意这里没有安装nova-compute-kvm。分布式的原理大致都是将api,scheduler等安装在控制节点，而功能的如compute安装到分布节点。
+
 * Now modify authtoken section in the /etc/nova/api-paste.ini file to this::
 
    [filter:authtoken]
    paste.filter_factory = keystoneclient.middleware.auth_token:filter_factory
-   auth_host = 10.10.10.51
+   auth_host = 192.168.1.1
    auth_port = 35357
    auth_protocol = http
    admin_tenant_name = service
@@ -453,16 +455,17 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
 
 * Modify the /etc/nova/nova.conf like this::
 
-   [DEFAULT] 
+   [DEFAULT]
+   debug=false
    logdir=/var/log/nova
    state_path=/var/lib/nova
    lock_path=/run/lock/nova
    verbose=True
    api_paste_config=/etc/nova/api-paste.ini
    compute_scheduler_driver=nova.scheduler.simple.SimpleScheduler
-   rabbit_host=10.10.10.51
-   nova_url=http://10.10.10.51:8774/v1.1/
-   sql_connection=mysql://novaUser:novaPass@10.10.10.51/nova
+   rabbit_host=192.168.1.1
+   nova_url=http://192.168.1.1:8774/v1.1/
+   sql_connection=mysql://novaUser:novaPass@192.168.1.1/nova
    root_helper=sudo nova-rootwrap /etc/nova/rootwrap.conf
 
    # Auth
@@ -470,24 +473,24 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
    auth_strategy=keystone
 
    # Imaging service
-   glance_api_servers=10.10.10.51:9292
+   glance_api_servers=192.168.1.1:9292
    image_service=nova.image.glance.GlanceImageService
 
    # Vnc configuration
    novnc_enabled=true
-   novncproxy_base_url=http://192.168.100.51:6080/vnc_auto.html
+   novncproxy_base_url=http://10.10.10.10:6080/vnc_auto.html
    novncproxy_port=6080
-   vncserver_proxyclient_address=10.10.10.51
+   vncserver_proxyclient_address=192.168.1.1
    vncserver_listen=0.0.0.0
 
    # Network settings
    network_api_class=nova.network.quantumv2.api.API
-   quantum_url=http://10.10.10.51:9696
+   quantum_url=http://192.168.1.1:9696
    quantum_auth_strategy=keystone
    quantum_admin_tenant_name=service
    quantum_admin_username=quantum
    quantum_admin_password=service_pass
-   quantum_admin_auth_url=http://10.10.10.51:35357/v2.0
+   quantum_admin_auth_url=http://192.168.1.1:35357/v2.0
    libvirt_vif_driver=nova.virt.libvirt.vif.LibvirtHybridOVSBridgeDriver
    linuxnet_interface_driver=nova.network.linux_net.LinuxOVSInterfaceDriver
    #If you want Quantum + Nova Security groups
@@ -507,6 +510,9 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
    volume_api_class=nova.volume.cinder.API
    osapi_volume_listen_port=5900
 
+对分布式系统中，最重要的是rabbit_host设置，上面提到了这是作为AMQP组件的rabbitMQ。分布在各个节点中的组件主要靠这个通讯。
+另外debug=true可以打开调试开关，日志会保存在logdir所设置的目录下。方便调试。同理，其他组件.conf文件也可以设置debug。
+
 * Synchronize your database::
 
    nova-manage db sync
@@ -524,7 +530,11 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
 
 * Install the required packages::
 
-   apt-get install -y cinder-api cinder-scheduler cinder-volume iscsitarget open-iscsi iscsitarget-dkms
+   apt-get install -y cinder-api cinder-scheduler
+
+作为cinder分布式模型，这里也只安装控制组件。对cinder来说，需要在3个节点安装东西，一个是控制节点的api和scheduler，
+一个是存储节点的cinder-volume服务以及功能组件iscsitarget iscsitarget-dkms(iscsi的targe端)，还有一个是计算节点的open-iscsi(iscsi的initiator端)。
+有一些通过apt的依赖关系安装了，所以可能没注意到。
 
 * Configure the iscsi services::
 
@@ -540,9 +550,9 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
    [filter:authtoken]
    paste.filter_factory = keystoneclient.middleware.auth_token:filter_factory
    service_protocol = http
-   service_host = 192.168.100.51
+   service_host = 10.10.10.10
    service_port = 5000
-   auth_host = 10.10.10.51
+   auth_host = 192.168.1.1
    auth_port = 35357
    auth_protocol = http
    admin_tenant_name = service
@@ -554,40 +564,22 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
 
    [DEFAULT]
    rootwrap_config=/etc/cinder/rootwrap.conf
-   sql_connection = mysql://cinderUser:cinderPass@10.10.10.51/cinder
+   sql_connection = mysql://cinderUser:cinderPass@192.168.1.1/cinder
    api_paste_config = /etc/cinder/api-paste.ini
    iscsi_helper=ietadm
    volume_name_template = volume-%s
    volume_group = cinder-volumes
    verbose = True
    auth_strategy = keystone
-   iscsi_ip_address=10.10.10.51
+   rabbit_host=192.168.1.1
+
+因为本身不提供cinder-volume服务，所以iscsi_ip_address不用设置。同理，iscsi_helper是否设置关系也不大，主要在存储节点要设置。
+不过还是讲一下，iscsi的target端有2个可选，一个是tgt，一个是iet。默认是tgt。不过由于存储和计算不在一个节点，实际上是网络硬盘的模式，
+类似SAN。个人经验选择iet好点。
 
 * Then, synchronize your database::
 
    cinder-manage db sync
-
-* Finally, don't forget to create a volumegroup and name it cinder-volumes::
-
-   dd if=/dev/zero of=cinder-volumes bs=1 count=0 seek=2G
-   losetup /dev/loop2 cinder-volumes
-   fdisk /dev/loop2
-   #Type in the followings:
-   n
-   p
-   1
-   ENTER
-   ENTER
-   t
-   8e
-   w
-
-* Proceed to create the physical volume then the volume group::
-
-   pvcreate /dev/loop2
-   vgcreate cinder-volumes /dev/loop2
-
-**Note:** Beware that this volume group gets lost after a system reboot. (Click `Here <https://github.com/mseknibilel/OpenStack-Folsom-Install-guide/blob/master/Tricks%26Ideas/load_volume_group_after_system_reboot.rst>`_ to know how to load it after a reboot) 
 
 * Restart the cinder services::
 
@@ -596,6 +588,8 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
 * Verify if cinder services are running::
 
    cd /etc/init.d/; for i in $( ls cinder-* ); do sudo service $i status; done
+   cinder-api start/running, process 1737
+   cinder-scheduler start/running, process 1747
 
 3.11. Horizon
 --------------
@@ -1124,7 +1118,26 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
 
 * Install the required packages::
 
-   apt-get install -y cinder-api cinder-scheduler cinder-volume iscsitarget open-iscsi iscsitarget-dkms
+   apt-get install -y iscsitarget-dkms iscsitarget cinder-volume
+
+由于openstack默认装tgt。所以这里安装iet时可能会冲突。
+需要先用lsof -i:3260检查端口。如果tgt已经运行，则需要先停止tgt服务再安装。最终要保证iet正确运行。
+
+* tgt运行时::
+
+   lsof -i:3260
+   COMMAND  PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+   tgtd    1810 root    4u  IPv4   1406      0t0  TCP *:3260 (LISTEN)
+   tgtd    1810 root    5u  IPv6   1407      0t0  TCP *:3260 (LISTEN)
+   tgtd    1813 root    4u  IPv4   1406      0t0  TCP *:3260 (LISTEN)
+   tgtd    1813 root    5u  IPv6   1407      0t0  TCP *:3260 (LISTEN)
+
+* iet运行时::
+
+   lsof -i:3260
+   COMMAND   PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+   ietd    39894 root    7u  IPv4 225635      0t0  TCP *:3260 (LISTEN)
+   ietd    39894 root    8u  IPv6 225636      0t0  TCP *:3260 (LISTEN)
 
 * Configure the iscsi services::
 
@@ -1140,9 +1153,9 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
    [filter:authtoken]
    paste.filter_factory = keystoneclient.middleware.auth_token:filter_factory
    service_protocol = http
-   service_host = 192.168.100.51
+   service_host = 10.10.10.10
    service_port = 5000
-   auth_host = 10.10.10.51
+   auth_host = 192.168.1.1
    auth_port = 35357
    auth_protocol = http
    admin_tenant_name = service
@@ -1154,15 +1167,18 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
 
    [DEFAULT]
    rootwrap_config=/etc/cinder/rootwrap.conf
-   sql_connection = mysql://cinderUser:cinderPass@10.10.10.51/cinder
+   sql_connection = mysql://cinderUser:cinderPass@192.168.1.1/cinder
    api_paste_config = /etc/cinder/api-paste.ini
    iscsi_helper=ietadm
    volume_name_template = volume-%s
    volume_group = cinder-volumes
    verbose = True
    auth_strategy = keystone
-   rabbit_host = 192.168.0.1
-   iscsi_ip_address = 192.168.0.4
+   rabbit_host = 192.168.1.1
+   iscsi_ip_address = 192.168.1.4
+
+这个配置文件中需要注意的是iscsi_helper=ietadm表示使用了iet。volume_group = cinder-volumes，这个名字在后面vgcreate的时候要用到。
+rabbit_host = 192.168.1.1和iscsi_ip_address = 192.168.1.4用来和控制节点相连。
 
 * Then, synchronize your database::
 
@@ -1190,6 +1206,17 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
 
 **Note:** Beware that this volume group gets lost after a system reboot. (Click `Here <https://github.com/mseknibilel/OpenStack-Folsom-Install-guide/blob/master/Tricks%26Ideas/load_volume_group_after_system_reboot.rst>`_ to know how to load it after a reboot) 
 
+原文提供的是文件作为存储。实际上我们可以把实际的分区作为存储。
+
+* Proceed to create the physical volume then the volume group::
+
+   pvcreate /dev/sda4
+   vgcreate cinder-volumes /dev/sda4
+
+整个存储系统的结构是这样的  kvm->open-iscsi(initiator) ---(net)---> iscsitarget(target)->lvm->file(/dev/loop2) or partition(/dev/sda4)。
+
+
+
 * Restart the cinder services::
 
    cd /etc/init.d/; for i in $( ls cinder-* ); do sudo service $i restart; done
@@ -1197,8 +1224,7 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
 * Verify if cinder services are running::
 
    cd /etc/init.d/; for i in $( ls cinder-* ); do sudo service $i status; done
-
-
+   cinder-volume start/running, process 41513
 
 7. Start VM
 =========================
