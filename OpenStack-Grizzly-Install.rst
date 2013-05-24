@@ -9,7 +9,7 @@
 Authors
 ==========
 
-`Cloud <https://github.com/codeshredder>`_ 
+`codeshredder <https://github.com/codeshredder>`_ 
 
 Reference
 ==========
@@ -1394,5 +1394,5 @@ To view a copy of this license, visit [ http://creativecommons.org/licenses/ ].
 9. Contacts
 ===========
 
-Cloud  : evilforce@gmail.com
+codeshredder  : evilforce@gmail.com
 
