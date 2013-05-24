@@ -102,7 +102,7 @@ openstack的安装首先必须要确定组网，现根据需求确定了组网�
 * eth0的10.10.10.x是管理网络。只是方便用于ssh登陆到各个Node配置用。其中只有Control Node是必须的，因为需要以此IP访问web。
 * eth1的192.168.0.x是内部网络。用于Openstack内部各个Node之间互通。原文内部网络有2个，个人觉得合成一个比较简单。
 * eth2的192.168.100.x是外部网络。VM如果要和外网通，需要用到。
-* 此外不在物理网络设置之内的还有VM网络，用于VM之间的通讯。VM分配的IP地址在此网络中。我们可以暂定50.50.50.x。
+* 此外不在物理网络设置之内的还有VM网络，用于VM之间的通讯。VM分配的IP地址在此网络中。我们定为50.50.1.x。
 
 
 本例把常用能分布式的部分分出来，包括网络，计算，存储，在此基础上，如果想合在一起只要合并配置即可，合比分容易的多。
@@ -1236,11 +1236,8 @@ ovs的tenant_netwoke_type有多种选项，这里选择gre通道方式。因为�
    iscsi_ip_address = 192.168.1.4
 
 这个配置文件中需要注意的是iscsi_helper=ietadm表示使用了iet。volume_group = cinder-volumes，这个名字在后面vgcreate的时候要用到。
-rabbit_host = 192.168.1.1和iscsi_ip_address = 192.168.1.4用来和控制节点相连。
+rabbit_host = 192.168.1.1和iscsi_ip_address = 192.168.1.4用来和控制节点相连。iscsi_ip_address为本node的ip。
 
-* Then, synchronize your database::
-
-   cinder-manage db sync
 
 * Finally, don't forget to create a volumegroup and name it cinder-volumes::
 
@@ -1264,15 +1261,14 @@ rabbit_host = 192.168.1.1和iscsi_ip_address = 192.168.1.4用来和控制节点�
 
 **Note:** Beware that this volume group gets lost after a system reboot. (Click `Here <https://github.com/mseknibilel/OpenStack-Folsom-Install-guide/blob/master/Tricks%26Ideas/load_volume_group_after_system_reboot.rst>`_ to know how to load it after a reboot) 
 
-原文提供的是文件作为存储。实际上我们可以把实际的分区作为存储。
-
-* Proceed to create the physical volume then the volume group::
+原文提供的是文件作为存储。实际上我们可以把实际的分区作为存储。比如我有个空分区/dev/sda4，可以这样::
 
    pvcreate /dev/sda4
    vgcreate cinder-volumes /dev/sda4
 
-整个存储系统的结构是这样的  kvm->open-iscsi(initiator) ---(net)---> iscsitarget(target)->lvm->file(/dev/loop2) or partition(/dev/sda4)。
+整个存储系统的结构是这样的::
 
+   kvm -> open-iscsi(initiator) ---(net)---> iscsitarget(target) -> lvm -> file(/dev/loop2) or partition(/dev/sda4)。
 
 
 * Restart the cinder services::
@@ -1300,20 +1296,24 @@ To start your first VM, we first need to create a new tenant, user and internal 
 
 * Create a new user and assign the member role to it in the new tenant (keystone role-list to get the appropriate id)::
 
+   keystone tenant-list
    keystone user-create --name=user_one --pass=user_one --tenant-id $put_id_of_project_one --email=user_one@domain.com
    keystone user-role-add --tenant-id $put_id_of_project_one  --user-id $put_id_of_user_one --role-id $put_id_of_member_role
 
 * Create a new network for the tenant::
 
-   quantum net-create --tenant-id $put_id_of_project_one net_proj_one 
+   quantum net-create --tenant-id $put_id_of_project_one net_proj_one
+   quantum net-list
 
 * Create a new subnet inside the new tenant network::
 
    quantum subnet-create --tenant-id $put_id_of_project_one net_proj_one 50.50.1.0/24
+   quantum subnet-list
 
 * Create a router for the new tenant::
 
    quantum router-create --tenant-id $put_id_of_project_one router_proj_one
+   quantum router-list
 
 * Add the router to the running l3 agent (if it wasn't automatically added)::
 
@@ -1334,7 +1334,7 @@ To start your first VM, we first need to create a new tenant, user and internal 
 
 * Create a subnet for the floating ips::
 
-   quantum subnet-create --tenant-id $put_id_of_admin_tenant --allocation-pool start=192.168.100.102,end=192.168.100.126 --gateway 192.168.100.1 ext_net 192.168.100.100/24 --enable_dhcp=False
+   quantum subnet-create --tenant-id $put_id_of_admin_tenant --allocation-pool start=192.168.100.102,end=192.168.100.150 --gateway 192.168.100.1 ext_net 192.168.100.100/24 --enable_dhcp=False
 
 * Set your router's gateway to the external network:: 
 
@@ -1342,13 +1342,13 @@ To start your first VM, we first need to create a new tenant, user and internal 
 
 * Source creds relative to your project one tenant now::
 
-   nano creds_proj_one
+   vi creds_proj_one
 
    #Paste the following:
    export OS_TENANT_NAME=project_one
    export OS_USERNAME=user_one
    export OS_PASSWORD=user_one
-   export OS_AUTH_URL="http://192.168.100.51:5000/v2.0/"
+   export OS_AUTH_URL="http://10.10.10.1:5000/v2.0/"
 
    source creds_proj_one
 
@@ -1356,6 +1356,16 @@ To start your first VM, we first need to create a new tenant, user and internal 
 
    nova --no-cache secgroup-add-rule default icmp -1 -1 0.0.0.0/0
    nova --no-cache secgroup-add-rule default tcp 22 22 0.0.0.0/0
+
+
+到此为止，配置基本完成。大致原理就是先要创建一个租户，之后所有的资源管理，如虚拟机(instance),网络(network)，存储(volume)都是基于这个用户的。
+对应的用户操作也需要使用creds_proj_one的环境变量。
+
+创建2个网络。一个是VM内部网络，另一个是出外网的网络，并且创建一个router，把这两个网络连在一起。
+
+至于floatingip。从下面的操作可以看出来，虚拟机启动后分配的内网IP，如果要出外网，需要分配一个外网ip也就是floatingip，并且把这个外网ip关联给这个虚拟机。
+
+使用部分可以使用horizon的web界面操作。简洁美观。
 
 * Start by allocating a floating ip to the project one tenant::
 
@@ -1375,6 +1385,11 @@ To start your first VM, we first need to create a new tenant, user and internal 
 
 That's it ! ping your VM and enjoy your OpenStack.
 
+
+另外补充下volume的用法。volume的操作包括create,delete,attach,dettach。create和delete仅和存储节点相关，只负责创建删除硬盘。
+而attach和dettach则负责把创建好的硬盘挂接到具体的虚拟机中。需要涉及compute node。
+
+openstack中大量用到uuid。命令行经常要用到很长的id作为关联用。需要注意如上面命令中的$put_id_of_admin_tenant等，都需要查询替换成实际系统中的id。
 
 
 8. Licensing
