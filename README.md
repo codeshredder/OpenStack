@@ -6,6 +6,7 @@
 
 Version       | Link                  |
 ------------- | --------------------- | 
-Grizzly       | https://github.com/codeshredder/OpenStack-Experience/blob/master/OpenStack-Grizzly-Install.rst |
+Grizzly-Install | https://github.com/codeshredder/OpenStack-Experience/blob/master/OpenStack-Grizzly-Install.rst |
+Cinder-Principle | https://github.com/codeshredder/OpenStack-Experience/blob/master/Grizzly-Cinder-Principle.rst |
 
 
