@@ -536,14 +536,6 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
 一个是存储节点的cinder-volume服务以及功能组件iscsitarget iscsitarget-dkms(iscsi的targe端)，还有一个是计算节点的open-iscsi(iscsi的initiator端)。
 有一些通过apt的依赖关系安装了，所以可能没注意到。
 
-* Configure the iscsi services::
-
-   sed -i 's/false/true/g' /etc/default/iscsitarget
-
-* Restart the services::
-   
-   service iscsitarget start
-   service open-iscsi start
 
 * Configure /etc/cinder/api-paste.ini like the following::
 
@@ -1204,7 +1196,7 @@ ovs的tenant_netwoke_type有多种选项，这里选择gre通道方式。因为�
 * Restart the services::
    
    service iscsitarget start
-   service open-iscsi start
+
 
 * Configure /etc/cinder/api-paste.ini like the following::
 
