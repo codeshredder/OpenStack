@@ -697,10 +697,12 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
    ovs-vsctl add-br br-ex
 
 
-由于网络组件选择了openvswitch，所以ovs需要配置一些东西。这里br-int,br-tun,br-ex是有门道的，建议不修改。
-因为有些配置项有默认值，所以有些攻略没有提到，导致理解上会有断链。
-br-int,br-tun在/etc/quantum/plugins/openvswitch/ovs_quantum_plugin.ini提到。
-br-ex在/etc/quantum/l3_agent.ini提到。
+由于网络组件选择了openvswitch，所以ovs需要配置一些东西。这里br-int,br-tun,br-ex命名是有门道的，建议不修改。
+因为有些配置项有默认值，所以有些攻略没有提到。一些逻辑清晰的人在理解上会有断链。
+br-int,br-tun在/etc/quantum/plugins/openvswitch/ovs_quantum_plugin.ini等提到。
+br-int在/etc/nova/nova-compute.conf等提到。
+br-ex在/etc/quantum/l3_agent.ini等提到。
+br-int用于虚拟机内部。br-tun用于gre节点之间过渡。br-ex用于连接外网。
 
 
 4.4. Quantum
@@ -846,7 +848,7 @@ ovs的tenant_netwoke_type有多种选项，这里选择gre通道方式。因为�
    sed -i 's/server 3.ubuntu.pool.ntp.org/#server 3.ubuntu.pool.ntp.org/g' /etc/ntp.conf
    
    #Set the compute node to follow up your conroller node
-   sed -i 's/server ntp.ubuntu.com/server 10.10.10.51/g' /etc/ntp.conf
+   sed -i 's/server ntp.ubuntu.com/server 192.168.1.1/g' /etc/ntp.conf
 
    service ntp restart  
 
@@ -869,13 +871,13 @@ ovs的tenant_netwoke_type有多种选项，这里选择gre通道方式。因为�
    # OpenStack management
    auto eth0
    iface eth0 inet static
-   address 10.10.10.53
+   address 10.10.10.3
    netmask 255.255.255.0
 
    # VM Configuration
    auto eth1
    iface eth1 inet static
-   address 10.20.20.53
+   address 192.168.1.3
    netmask 255.255.255.0
 
 5.3 KVM
@@ -890,6 +892,8 @@ ovs的tenant_netwoke_type有多种选项，这里选择gre通道方式。因为�
 
    apt-get install -y kvm libvirt-bin pm-utils
 
+虚拟机框架选择了kvm。openstack也支持xen,vmware等。
+
 * Edit the cgroup_device_acl array in the /etc/libvirt/qemu.conf file to::
 
    cgroup_device_acl = [
@@ -898,6 +902,8 @@ ovs的tenant_netwoke_type有多种选项，这里选择gre通道方式。因为�
    "/dev/ptmx", "/dev/kvm", "/dev/kqemu",
    "/dev/rtc", "/dev/hpet","/dev/net/tun"
    ]
+
+注意和默认比增加了"/dev/net/tun"。
 
 * Delete default virtual bridge ::
 
@@ -934,6 +940,8 @@ ovs的tenant_netwoke_type有多种选项，这里选择gre通道方式。因为�
    #br-int will be used for VM integration  
    ovs-vsctl add-br br-int
 
+每个节点都需要加入到br-int。
+
 5.5. Quantum
 ------------------
 
@@ -941,11 +949,13 @@ ovs的tenant_netwoke_type有多种选项，这里选择gre通道方式。因为�
 
    apt-get -y install quantum-plugin-openvswitch-agent
 
+因为虚拟机需要网络支持，所以要装quantum。如果VM不需要网络，这部分可以不用。
+
 * Edit the OVS plugin configuration file /etc/quantum/plugins/openvswitch/ovs_quantum_plugin.ini with:: 
 
    #Under the database section
    [DATABASE]
-   sql_connection = mysql://quantumUser:quantumPass@10.10.10.51/quantum
+   sql_connection = mysql://quantumUser:quantumPass@192.168.1.1/quantum
 
    #Under the OVS section
    [OVS]
@@ -953,21 +963,23 @@ ovs的tenant_netwoke_type有多种选项，这里选择gre通道方式。因为�
    tunnel_id_ranges = 1:1000
    integration_bridge = br-int
    tunnel_bridge = br-tun
-   local_ip = 10.20.20.53
+   local_ip = 192.168.1.3
    enable_tunneling = True
    
    #Firewall driver for realizing quantum security group function
    [SECURITYGROUP]
    firewall_driver = quantum.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver
 
+注意local_ip为本节点ip。
+
 * Make sure that your rabbitMQ IP in /etc/quantum/quantum.conf is set to the controller node::
    
-   rabbit_host = 10.10.10.51
+   rabbit_host = 192.168.1.1
 
    #And update the keystone_authtoken section
 
    [keystone_authtoken]
-   auth_host = 10.10.10.51
+   auth_host = 192.168.1.1
    auth_port = 35357
    auth_protocol = http
    admin_tenant_name = service
@@ -978,6 +990,7 @@ ovs的tenant_netwoke_type有多种选项，这里选择gre通道方式。因为�
 * Restart all the services::
 
    service quantum-plugin-openvswitch-agent restart
+
 
 5.6. Nova
 ------------------
@@ -990,7 +1003,7 @@ ovs的tenant_netwoke_type有多种选项，这里选择gre通道方式。因为�
 
    [filter:authtoken]
    paste.filter_factory = keystoneclient.middleware.auth_token:filter_factory
-   auth_host = 10.10.10.51
+   auth_host = 192.168.1.1
    auth_port = 35357
    auth_protocol = http
    admin_tenant_name = service
@@ -1009,6 +1022,8 @@ ovs的tenant_netwoke_type有多种选项，这里选择gre通道方式。因为�
    libvirt_vif_driver=nova.virt.libvirt.vif.LibvirtHybridOVSBridgeDriver
    libvirt_use_virtio_for_bridges=True
 
+注意br-int。
+
 * Modify the /etc/nova/nova.conf like this::
 
    [DEFAULT] 
@@ -1018,9 +1033,9 @@ ovs的tenant_netwoke_type有多种选项，这里选择gre通道方式。因为�
    verbose=True
    api_paste_config=/etc/nova/api-paste.ini
    compute_scheduler_driver=nova.scheduler.simple.SimpleScheduler
-   rabbit_host=10.10.10.51
-   nova_url=http://10.10.10.51:8774/v1.1/
-   sql_connection=mysql://novaUser:novaPass@10.10.10.51/nova
+   rabbit_host=192.168.1.1
+   nova_url=http://192.168.1.1:8774/v1.1/
+   sql_connection=mysql://novaUser:novaPass@192.168.1.1/nova
    root_helper=sudo nova-rootwrap /etc/nova/rootwrap.conf
 
    # Auth
@@ -1028,24 +1043,24 @@ ovs的tenant_netwoke_type有多种选项，这里选择gre通道方式。因为�
    auth_strategy=keystone
 
    # Imaging service
-   glance_api_servers=10.10.10.51:9292
+   glance_api_servers=192.168.1.1:9292
    image_service=nova.image.glance.GlanceImageService
 
    # Vnc configuration
    novnc_enabled=true
-   novncproxy_base_url=http://192.168.100.51:6080/vnc_auto.html
+   novncproxy_base_url=http://10.10.10.1:6080/vnc_auto.html
    novncproxy_port=6080
-   vncserver_proxyclient_address=10.10.10.53
+   vncserver_proxyclient_address=192.168.1.3
    vncserver_listen=0.0.0.0
 
    # Network settings
    network_api_class=nova.network.quantumv2.api.API
-   quantum_url=http://10.10.10.51:9696
+   quantum_url=http://192.168.1.1:9696
    quantum_auth_strategy=keystone
    quantum_admin_tenant_name=service
    quantum_admin_username=quantum
    quantum_admin_password=service_pass
-   quantum_admin_auth_url=http://10.10.10.51:35357/v2.0
+   quantum_admin_auth_url=http://192.168.1.1:35357/v2.0
    libvirt_vif_driver=nova.virt.libvirt.vif.LibvirtHybridOVSBridgeDriver
    linuxnet_interface_driver=nova.network.linux_net.LinuxOVSInterfaceDriver
    #If you want Quantum + Nova Security groups
@@ -1066,11 +1081,13 @@ ovs的tenant_netwoke_type有多种选项，这里选择gre通道方式。因为�
    osapi_volume_listen_port=5900
    cinder_catalog_info=volume:cinder:internalURL
 
+注意vncserver_proxyclient_address为本node地址。
+
 * Restart nova-* services::
 
    cd /etc/init.d/; for i in $( ls nova-* ); do sudo service $i restart; done   
 
-* Check for the smiling faces on nova-* services to confirm your installation::
+* Check for the smiling faces on nova-* services to confirm your installation(on control node as admin)::
 
    nova-manage service list
 
@@ -1109,7 +1126,7 @@ ovs的tenant_netwoke_type有多种选项，这里选择gre通道方式。因为�
    sed -i 's/server 3.ubuntu.pool.ntp.org/#server 3.ubuntu.pool.ntp.org/g' /etc/ntp.conf
    
    #Set the compute node to follow up your conroller node
-   sed -i 's/server ntp.ubuntu.com/server 10.10.10.51/g' /etc/ntp.conf
+   sed -i 's/server ntp.ubuntu.com/server 192.168.1.1/g' /etc/ntp.conf
 
    service ntp restart  
 
@@ -1194,7 +1211,7 @@ ovs的tenant_netwoke_type有多种选项，这里选择gre通道方式。因为�
    [filter:authtoken]
    paste.filter_factory = keystoneclient.middleware.auth_token:filter_factory
    service_protocol = http
-   service_host = 10.10.10.10
+   service_host = 10.10.10.1
    service_port = 5000
    auth_host = 192.168.1.1
    auth_port = 35357
