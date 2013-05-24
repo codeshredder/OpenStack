@@ -1226,6 +1226,11 @@ rabbit_host = 192.168.1.1和iscsi_ip_address = 192.168.1.4用来和控制节点�
    cd /etc/init.d/; for i in $( ls cinder-* ); do sudo service $i status; done
    cinder-volume start/running, process 41513
 
+* Verify if cinder host are running(on control node as admin)::
+
+   cinder-manage host list
+
+
 7. Start VM
 =========================
 
