@@ -178,7 +178,7 @@ discovery之后可以看到建立的node::
 
    #virsh attach-disk instance-00000005 /dev/sda4 vdb
 
-成功后，进入虚拟机使用fdisk -l，可以看到新添加的硬盘。结合之前的步骤，将/dev/sda4换成iscsi initiator挂接后的硬盘设备即可。
+成功后，进入虚拟机使用fdisk -l，可以看到新添加的硬盘。和结合之前的iscsi步骤关联起来，只需将/dev/sda4换成iscsi initiator挂接后的硬盘设备即可。
 
 卸载使用::
 
