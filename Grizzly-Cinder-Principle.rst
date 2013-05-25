@@ -151,6 +151,38 @@ discovery之后可以看到建立的node::
 
 主要安装kvm，由于initiator需要直接提供存储给kvm,所以需要和initiator安装在一个node上。
 
+1）安装kvm相关包
 
-（to be continue...）
+略
+
+2）启动虚拟机
+
+略
+
+查看虚拟机启动状态::
+
+   #virsh list --all
+    Id    Name                           State
+   ----------------------------------------------------
+    2     instance-00000005              running
+
+
+3）挂接和卸载硬盘
+
+使用virsh命令::
+
+   virsh attach-disk <domain> <source> <target>
+   virsh detach-disk <domain> <target>
+
+例如将host机中/dev/sda4分区，挂接到虚拟机的/dev/vdb::
+
+   #virsh attach-disk instance-00000005 /dev/sda4 vdb
+
+成功后，进入虚拟机使用fdisk -l，可以看到新添加的硬盘。结合之前的步骤，将/dev/sda4换成iscsi initiator挂接后的硬盘设备即可。
+
+卸载使用::
+
+   #virsh detach-disk instance-00000005 vdb
+
+
 
