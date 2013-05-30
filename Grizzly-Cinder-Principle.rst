@@ -125,7 +125,7 @@ discovery之后可以看到建立的node::
 
 登入::
 
-   #iscsiadm -m node -T iqn.foo.example -l
+   #iscsiadm -m node -T iqn.foo.example -l -p 192.168.1.5
 
 正确登陆之后，通过fdisk就能看到远程硬盘::
 
