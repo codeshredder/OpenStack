@@ -1172,6 +1172,9 @@ ovs的tenant_netwoke_type有多种选项，这里选择gre通道方式。因为�
 
 由于openstack默认装tgt。所以这里安装iet时可能会冲突。
 需要先用lsof -i:3260检查端口。如果tgt已经运行，则需要先停止tgt服务再安装。最终要保证iet正确运行。
+::
+
+   /etc/init.d/tgt stop
 
 * tgt运行时::
 
