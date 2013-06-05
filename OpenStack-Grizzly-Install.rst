@@ -774,7 +774,7 @@ ovs的tenant_netwoke_type有多种选项，这里选择gre通道方式。因为�
 
 * Edit /etc/sudoers to give it full access like this (This is unfortunatly mandatory) ::
 
-   nano /etc/sudoers/sudoers.d/quantum_sudoers
+   vi /etc/sudoers.d/quantum_sudoers
    
    #Modify the quantum user
    quantum ALL=NOPASSWD: ALL
