@@ -1387,6 +1387,13 @@ That's it ! ping your VM and enjoy your OpenStack.
 openstack中大量用到uuid。命令行经常要用到很长的id作为关联用。需要注意如上面命令中的$put_id_of_admin_tenant等，都需要查询替换成实际系统中的id。
 
 
+* Rest API
+
+OpenStack CLI调用的是rest api. 可以使用--debug查看每条命令整个调用rest api的过程,例如::
+
+   keystone --debug tenant-list
+
+
 8. Licensing
 ============
 
