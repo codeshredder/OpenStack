@@ -6,6 +6,8 @@
 :Source: https://github.com/codeshredder/OpenStack-Experience/blob/master/OpenStack-Grizzly-Install.rst
 :Keywords: Grizzly, Quantum, Nova, Keystone, Glance, Horizon, Cinder, OpenVSwitch, KVM, Ubuntu 12.04/13.04 (64 bits).
 
+.. contents::
+
 Authors
 ==========
 
@@ -32,22 +34,6 @@ http://docs.openstack.org/grizzly/openstack-block-storage/admin/content/
 
 https://github.com/openstack
 
-
-Table of Contents
-=================
-
-::
-
-  0. What is it?
-  1. Overview
-  2. Requirements
-  3. Controller Node
-  4. Network Node
-  5. Compute Node
-  6. Storage Node
-  7. Start VM
-  8. Licensing
-  9. Contacts
 
 0. What is it?
 ==============
