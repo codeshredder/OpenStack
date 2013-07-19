@@ -2,13 +2,15 @@
   Cinder iscsi analysis
 ==========================================================
 
+.. contents::
+
 
 Authors
 ==========
 
 `codeshredder <https://github.com/codeshredder>`_ 
 
-1. Overview
+Overview
 ====================
 
 openstack是一个管理套件，业务功能部分主要还是由各个开源组件集合完成。openstack的操作最终会变成各个功能组件自己的配置命令。
@@ -26,7 +28,7 @@ openstack是一个管理套件，业务功能部分主要还是由各个开源�
 按照节点来分。target作为一个存储节点，而initiator和kvm组成一个计算节点。
 
 
-2. ISCSI Target Node
+ISCSI Target Node
 ====================
 
 安装iscsitarget iscsitarget-dkms(target部分)。
@@ -105,7 +107,7 @@ openstack是一个管理套件，业务功能部分主要还是由各个开源�
 服务正常运行时，target端fdisk -l能看到刚才新建立的分区。
 
 
-3. ISCSI Initiator Node
+ISCSI Initiator Node
 ====================
 
 主要安装open-iscsi（initiator部分）。
@@ -146,7 +148,7 @@ discovery之后可以看到建立的node::
    #iscsiadm -m node -o delete -T iqn.foo.example
 
 
-4. Compute Node (together with Initiator Node)
+Compute Node (together with Initiator Node)
 ====================
 
 主要安装kvm，由于initiator需要直接提供存储给kvm,所以需要和initiator安装在一个node上。
