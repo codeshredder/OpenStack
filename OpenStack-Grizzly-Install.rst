@@ -1277,6 +1277,7 @@ To start your first VM, we first need to create a new tenant, user and internal 
 
    keystone tenant-list
    keystone user-create --name=user_one --pass=user_one --tenant-id $put_id_of_project_one --email=user_one@domain.com
+   keystone role-list
    keystone user-role-add --tenant-id $put_id_of_project_one  --user-id $put_id_of_user_one --role-id $put_id_of_member_role
 
 * Create a new network for the tenant::
