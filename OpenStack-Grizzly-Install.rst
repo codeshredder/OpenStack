@@ -1290,6 +1290,11 @@ To start your first VM, we first need to create a new tenant, user and internal 
    quantum subnet-create --tenant-id $put_id_of_project_one net_proj_one 50.50.1.0/24
    quantum subnet-list
 
+* Create a dhcp agent::
+
+   quantum agent-list (to get the dhcp agent id)
+   quantum dhcp-agent-network-add $dhcp_agent_id net_proj_one
+
 * Create a router for the new tenant::
 
    quantum router-create --tenant-id $put_id_of_project_one router_proj_one
@@ -1297,8 +1302,8 @@ To start your first VM, we first need to create a new tenant, user and internal 
 
 * Add the router to the running l3 agent (if it wasn't automatically added)::
 
-   quantum agent-list (to get the l3 agent ID)
-   quantum l3-agent-router-add $l3_agent_ID router_proj_one
+   quantum agent-list (to get the l3 agent id)
+   quantum l3-agent-router-add $l3_agent_id router_proj_one
 
 * Add the router to the subnet::
 
