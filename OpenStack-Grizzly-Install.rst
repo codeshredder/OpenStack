@@ -763,7 +763,7 @@ ovs的tenant_netwoke_type有多种选项，这里选择gre通道方式。因为�
    vi /etc/sudoers.d/quantum_sudoers
    
    #Modify the quantum user
-   quantum ALL=NOPASSWD: ALL
+   quantum ALL=(ALL) NOPASSWD: ALL
 
 * Restart all the services::
 
