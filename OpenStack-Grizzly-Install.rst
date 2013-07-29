@@ -995,6 +995,7 @@ ovs的tenant_netwoke_type有多种选项，这里选择gre通道方式。因为�
    
    [DEFAULT]
    libvirt_type=kvm
+   compute_driver=libvirt.LibvirtDriver
    libvirt_ovs_bridge=br-int
    libvirt_vif_type=ethernet
    libvirt_vif_driver=nova.virt.libvirt.vif.LibvirtHybridOVSBridgeDriver
@@ -1050,9 +1051,6 @@ ovs的tenant_netwoke_type有多种选项，这里选择gre通道方式。因为�
    #Metadata
    service_quantum_metadata_proxy = True
    quantum_metadata_proxy_shared_secret = helloOpenStack
-
-   # Compute #
-   compute_driver=libvirt.LibvirtDriver
 
    # Cinder #
    volume_api_class=nova.volume.cinder.API
