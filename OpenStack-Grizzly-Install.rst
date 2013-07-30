@@ -2,10 +2,6 @@
   OpenStack Grizzly Install Guide
 ==========================================================
 
-:Version: 1.0
-:Source: https://github.com/codeshredder/OpenStack-Experience/blob/master/OpenStack-Grizzly-Install.rst
-:Keywords: Grizzly, Quantum, Nova, Keystone, Glance, Horizon, Cinder, OpenVSwitch, KVM, Ubuntu 12.04/13.04 (64 bits).
-
 .. contents::
 
 Authors
@@ -35,13 +31,13 @@ http://docs.openstack.org/grizzly/openstack-block-storage/admin/content/
 https://github.com/openstack
 
 
-0. What is it?
+What is it?
 ==============
 
 It is for somebody who want an easy way to create a private OpenStack test environment. 
 
 
-1. Overview
+Overview
 ====================
 
 Openstack是一个云计算框架。全部搭起来以后可以实现启动虚拟机，实现虚拟机之间以及虚拟机和外网之间的通讯，实现虚拟机的虚拟存储的分配和挂接。并且对虚拟的管理可以通过web来实现。
@@ -65,7 +61,7 @@ Openstack是一个云计算框架。全部搭起来以后可以实现启动虚�
 
 希望通过以上的一些原理描述，有助于对后面的安装配置过程的理解。
 
-2. Requirements
+Requirements
 ============
 
 安装步骤几乎都是抄的
@@ -94,11 +90,11 @@ openstack的安装首先必须要确定组网，现根据需求确定了组网�
 本例把常用能分布式的部分分出来，包括网络，计算，存储，在此基础上，如果想合在一起只要合并配置即可，合比分容易的多。
 
 
-3. Controller Node
+Controller Node
 ============
 
 
-3.1. Preparing Ubuntu
+Preparing Ubuntu
 -----------------
 
 * After you install Ubuntu 12.04 or 13.04 Server 64bits, Go in sudo mode and don't leave it until the end of this guide::
@@ -118,7 +114,7 @@ openstack的安装首先必须要确定组网，现根据需求确定了组网�
    apt-get upgrade -y
    apt-get dist-upgrade -y
 
-3.2. Networking
+Networking
 ------------
 
 网络是外围配置的第一步。不同发行版的修改方式不同。下面这是ubuntu中修改/etc/network/interfaces文件。
@@ -143,7 +139,7 @@ openstack的安装首先必须要确定组网，现根据需求确定了组网�
 
    service networking restart
 
-3.3. MySQL & RabbitMQ
+MySQL & RabbitMQ
 ------------
 
 Openstack中很多位置有多个组件可以替代，比如数据库可以用mysql或者sqllite。AMQP也就是消息通讯用的，可以用RabbitMQ或者Qpid。
@@ -188,7 +184,7 @@ Openstack中很多位置有多个组件可以替代，比如数据库可以用my
 
 这里是把需要用到的数据库，先手动创建。用户名密码在后面各个sql_connection配置中会反复出现。
 
-3.4. RabbitMQ
+RabbitMQ
 -------------------
 
 AMQP选择了RabbitMQ，后面配置中看到的rabbit_host就和这个相关。如果选择Qpid，就要找Qpid字样的。在openstack代码中有个类似nova.conf.sample的文件，里面有比较全的配置项，供参考。
@@ -202,7 +198,7 @@ AMQP选择了RabbitMQ，后面配置中看到的rabbit_host就和这个相关。
    apt-get install -y ntp
 
  
-3.5. Others
+Others
 -------------------
 
 * Install other services::
@@ -217,7 +213,7 @@ AMQP选择了RabbitMQ，后面配置中看到的rabbit_host就和这个相关。
    sysctl net.ipv4.ip_forward=1
 
 
-3.6. Keystone
+Keystone
 -------------------
 
 keystone主要用于组件件通讯认证用的。这部分也是比较复杂。所以基于原原本本照抄。毕竟这部分不是我关注的重点，能跑就行。。
@@ -278,7 +274,7 @@ keystone主要用于组件件通讯认证用的。这部分也是比较复杂。
    | 3e8e411b4bea4a95bb4bd83ecc287268 |  quantum  |   True  |  quantum@domain.com |
    +----------------------------------+-----------+---------+---------------------+
 
-3.7. Glance
+Glance
 -------------------
 
 Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需要用到镜像。这个就是用来把可用的镜像输入到Openstack中，供nova起虚拟机时用。
@@ -359,7 +355,7 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
 
 另外horizon装好之后也可以通过web来添加镜像。比命令方便直观。
 
-3.8. Quantum
+Quantum
 -------------------
 
 网络的组件也有多种，这里选择的是openvswitch。如果选择linuxbridge，配置就会不一样。比如修改的plugins文件不同。
@@ -416,7 +412,7 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
    service quantum-server restart
 
 
-3.9. Nova
+Nova
 ------------------
 
 * Start by installing nova components::
@@ -511,7 +507,7 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
 
    nova-manage service list
 
-3.10. Cinder
+Cinder
 --------------
 
 * Install the required packages::
@@ -569,7 +565,7 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
    cinder-api start/running, process 1737
    cinder-scheduler start/running, process 1747
 
-3.11. Horizon
+Horizon
 --------------
 
 * To install horizon, proceed like this ::
@@ -587,10 +583,10 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
 正常情况下，这时访问 http://10.10.10.1/horizon 就可以看到web界面了。
 用户admin,密码admin_pass。有些可能会报错，因为network,compute,storage节点还没安装。
 
-4. Network Node
+Network Node
 ================
 
-4.1. Preparing the Node
+Preparing the Node
 ------------------
 
 * After you install Ubuntu 12.04 or 13.04 Server 64bits, Go in sudo mode::
@@ -636,7 +632,7 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
    # To save you from rebooting, perform the following
    sysctl net.ipv4.ip_forward=1
 
-4.2.Networking
+Networking
 ------------
 
 * 3 NICs must be present::
@@ -659,7 +655,7 @@ Glance主要用来做镜像管理，用过虚拟机的都知道跑虚拟机需�
    address 192.168.100.100
    netmask 255.255.255.0
 
-4.3. OpenVSwitch (Part1)
+OpenVSwitch (Part1)
 ------------------
 
 * Install the openVSwitch::
@@ -683,7 +679,7 @@ br-ex在/etc/quantum/l3_agent.ini等提到。
 br-int用于虚拟机内部。br-tun用于gre节点之间过渡。br-ex用于连接外网。
 
 
-4.4. Quantum
+Quantum
 ------------------
 
 * Install the Quantum openvswitch agent, l3 agent and dhcp agent::
@@ -769,7 +765,7 @@ ovs的tenant_netwoke_type有多种选项，这里选择gre通道方式。因为�
 
    cd /etc/init.d/; for i in $( ls quantum-* ); do sudo service $i restart; done
 
-4.5. OpenVSwitch (Part2)
+OpenVSwitch (Part2)
 ------------------
 * Edit the eth2 in /etc/network/interfaces to become like this::
 
@@ -791,10 +787,10 @@ ovs的tenant_netwoke_type有多种选项，这里选择gre通道方式。因为�
    #If you want to get internet connection back, you can assign the eth2's IP address to the br-ex in the /etc/network/interfaces file.
 
 
-5. Compute Node
+Compute Node
 =========================
 
-5.1. Preparing the Node
+Preparing the Node
 ------------------
 
 * After you install Ubuntu 12.04 or 13.04 Server 64bits, Go in sudo mode::
@@ -841,7 +837,7 @@ ovs的tenant_netwoke_type有多种选项，这里选择gre通道方式。因为�
    # To save you from rebooting, perform the following
    sysctl net.ipv4.ip_forward=1
 
-5.2.Networking
+Networking
 ------------
 
 * Perform the following::
@@ -858,7 +854,7 @@ ovs的tenant_netwoke_type有多种选项，这里选择gre通道方式。因为�
    address 192.168.1.3
    netmask 255.255.255.0
 
-5.3 KVM
+KVM
 ------------------
 
 * make sure that your hardware enables virtualization::
@@ -906,7 +902,7 @@ ovs的tenant_netwoke_type有多种选项，这里选择gre通道方式。因为�
 
    service libvirt-bin restart
 
-5.4. OpenVSwitch
+OpenVSwitch
 ------------------
 
 * Install the openVSwitch::
@@ -920,7 +916,7 @@ ovs的tenant_netwoke_type有多种选项，这里选择gre通道方式。因为�
 
 每个节点都需要加入到br-int。
 
-5.5. Quantum
+Quantum
 ------------------
 
 * Install the Quantum openvswitch agent::
@@ -970,7 +966,7 @@ ovs的tenant_netwoke_type有多种选项，这里选择gre通道方式。因为�
    service quantum-plugin-openvswitch-agent restart
 
 
-5.6. Nova
+Nova
 ------------------
 
 * Install nova's required components for the compute node::
@@ -1068,10 +1064,10 @@ ovs的tenant_netwoke_type有多种选项，这里选择gre通道方式。因为�
    nova-manage service list
 
 
-6. Storage Node
+Storage Node
 =========================
 
-6.1. Preparing the Node
+Preparing the Node
 ------------------
 
 * After you install Ubuntu 12.04 or 13.04 Server 64bits, Go in sudo mode::
@@ -1129,7 +1125,7 @@ ovs的tenant_netwoke_type有多种选项，这里选择gre通道方式。因为�
    apt-get install -y nova-compute-kvm
 
 
-6.2. Networking
+Networking
 ------------
 
 * Perform the following::
@@ -1147,7 +1143,7 @@ ovs的tenant_netwoke_type有多种选项，这里选择gre通道方式。因为�
    netmask 255.255.255.0
 
 
-6.3. Cinder
+Cinder
 --------------
 
 * Install the required packages::
@@ -1264,7 +1260,7 @@ rabbit_host = 192.168.1.1和iscsi_ip_address = 192.168.1.4用来和控制节点�
    cinder-manage host list
 
 
-7. Start VM
+Start VM
 =========================
 
 To start your first VM, we first need to create a new tenant, user and internal network.
@@ -1388,14 +1384,14 @@ OpenStack CLI调用的是rest api. 可以使用--debug查看每条命令整个�
    keystone --debug tenant-list
 
 
-8. Licensing
+Licensing
 ============
 
 This project is licensed under Creative Commons License.
 
 To view a copy of this license, visit [ http://creativecommons.org/licenses/ ].
 
-9. Contacts
+Contacts
 ===========
 
 codeshredder  : evilforce@gmail.com
