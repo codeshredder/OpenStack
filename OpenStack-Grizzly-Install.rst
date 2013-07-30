@@ -1317,9 +1317,13 @@ To start your first VM, we first need to create a new tenant, user and internal 
 
    quantum net-create --tenant-id $put_id_of_admin_tenant ext_net --router:external=True
 
+**Note:** tenant-id is admin here
+
 * Create a subnet for the floating ips::
 
    quantum subnet-create --tenant-id $put_id_of_admin_tenant --allocation-pool start=192.168.100.102,end=192.168.100.150 --gateway 192.168.100.1 ext_net 192.168.100.100/24 --enable_dhcp=False
+
+**Note:** tenant-id is admin here
 
 * Set your router's gateway to the external network:: 
 
