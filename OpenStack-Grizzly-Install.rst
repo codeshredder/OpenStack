@@ -1343,6 +1343,8 @@ To start your first VM, we first need to create a new tenant, user and internal 
    nova --no-cache secgroup-add-rule default tcp 22 22 0.0.0.0/0
 
 
+OK. Your OpenStack configuration is almost finished.
+
 到此为止，配置基本完成。大致原理就是先要创建一个租户，之后所有的资源管理，如虚拟机(instance),网络(network)，存储(volume)都是基于这个用户的。
 对应的用户操作也需要使用creds_proj_one的环境变量。
 
@@ -1368,7 +1370,6 @@ To start your first VM, we first need to create a new tenant, user and internal 
 
    quantum floatingip-associate $put_id_floating_ip $put_id_vm_port
 
-That's it ! ping your VM and enjoy your OpenStack.
 
 
 另外补充下volume的用法。volume的操作包括create,delete,attach,dettach。create和delete仅和存储节点相关，只负责创建删除硬盘。
