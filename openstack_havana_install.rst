@@ -1,100 +1,98 @@
 
-1.架构设计
-
-1.1 openstack结点设计
-
-Control Node
- eth0 (10.10.10.1), eth1 (192.168.1.1)
- 
-Network Node
- eth0 (192.168.1.2), eth1, eth2
- 
-Compute Node
- eth0 (192.168.1.3)
- 
+1.0 get requirment and design deploy architecture
 
 
-1.2 openstack网络设计
-
-两个直通对外的子网
-physnet1:br-ex1      ->eth1
-physnet2:br-ex2      ->eth2
 
 
-2.1 控制结点
+2.0 control node
 
-安装好Ubuntu12.04 server 64bits后，进入root模式进行安装。
-(不能安装ubuntu 12.04.4，内核版本3.11太新，dkms编译可能有问题)
+2.1 install os
 
+1) install Ubuntu12.04.3 server 64bits
 
-sudo su - 
-添加Havana仓库：
+2) login as root
+
+3) add Havana repository：
 
 apt-get install python-software-properties
 add-apt-repository cloud-archive:havana
 
-升级系统：
+4) update ubuntu：
 
 apt-get update
 apt-get upgrade
 apt-get dist-upgrade
  
-2.2设置网络
+2.2 config networks
+
+1) config interface
 
 vi /etc/network/interfaces
 
 #For Exposing OpenStack API over the internet
 auto eth0
 iface eth0 inet static
-address 10.10.10.1
+address 10.141.71.201
 netmask 255.255.255.0
-gateway 10.141.123.1
+gateway 10.141.70.1
 #dns-nameservers 8.8.8.8
 
 #Not internet connected(used for OpenStack management)
 auto eth1
 iface eth0 inet static
-address 192.168.1.1
+address 192.168.0.1
 netmask 255.255.255.0
 
-
-重启网络服务
+2) restart network:
 
 /etc/init.d/networking restart
 
 
-开启路由转发：
+3) enable ipforward：
  
 sed -i 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/' /etc/sysctl.conf
 sysctl -p
 
-2.3安装RabbitMQ和NTP
 
-安装RabbitMQ:
+
+2.3 install RabbitMQ and NTP
+
+1) install RabbitMQ:
 
 apt-get install rabbitmq-server
 
 
-安装NTP服务
+2) install NTP:
 
 apt-get install ntp
 
 
-2.4安装MySQL
-安装MySQL并为root用户设置密码：
+2.4 install MySQL
+
+1)
 
 apt-get install mysql-server python-mysqldb
 
-配置mysql监听所有网络请求
+notice: you may set mysql root's password during install.
+
+
+2) config mysql setting and restart:
 
 sed -i 's/127.0.0.1/0.0.0.0/g' /etc/mysql/my.cnf
+
+
 service mysql restart
 
 
 
-2.5创建数据库
+2.5 create databases
+
+
+login as root:
 
 mysql -u root -p
+
+
 
 #Keystone
 CREATE DATABASE keystone;
@@ -120,25 +118,28 @@ quit;
 
 
 
-2.6.配置Keystone
+2.6 install Keystone
 
-安装keystone软件包：
+1) install keystone：
 
 apt-get install keystone
 
-在/etc/keystone/keystone.conf中设置连接到新创建的数据库：
+2) update /etc/keystone/keystone.conf:
 
-connection=mysql://keystoneUser:keystonePass@192.168.1.1/keystone
+connection=mysql://keystoneUser:keystonePass@192.168.0.1/keystone
 
 
-重启身份认证服务并同步数据库：
+3) restart service and sync data：
 
 service keystone restart
+
 keystone-manage db_sync
  
+4) config keystone
 
 
 vi keystone.sh
+
 
 #!/bin/sh
 #
@@ -152,15 +153,15 @@ vi keystone.sh
 ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin_pass}
 SERVICE_PASSWORD=${SERVICE_PASSWORD:-service_pass}
 export SERVICE_TOKEN="ADMIN"
-export SERVICE_ENDPOINT="http://192.168.1.1:35357/v2.0"
+export SERVICE_ENDPOINT="http://192.168.0.1:35357/v2.0"
 SERVICE_TENANT_NAME=${SERVICE_TENANT_NAME:-service}
 KEYSTONE_REGION=RegionOne
 # If you need to provide the service, please to open keystone_wlan_ip and swift_wlan_ip
 # of course you are a multi-node architecture, and swift service
 # corresponding ip address set the following variables
-KEYSTONE_IP="192.168.1.1"
-EXT_HOST_IP="10.10.10.1"
-SWIFT_IP="192.168.1.1"
+KEYSTONE_IP="192.168.0.1"
+EXT_HOST_IP="10.141.71.201"
+SWIFT_IP="192.168.0.1"
 COMPUTE_IP=$KEYSTONE_IP
 EC2_IP=$KEYSTONE_IP
 GLANCE_IP=$KEYSTONE_IP
@@ -264,46 +265,48 @@ keystone --token $SERVICE_TOKEN --endpoint $SERVICE_ENDPOINT endpoint-create --r
 
 
 
+chmod +x keystone.sh
+./keystone.sh
+
+notice: keystone.sh is a simple sample. it can be changed according to real condition.
 
 
-上述脚本文件为了填充keystone数据库，其中还有些内容根据自身情况修改。
-创建一个简单的凭据文件，这样稍后不会因为输入过多的环境变量而感到厌烦。
+4) run openstack cmd as admin
 
 
 vi creds-admin
 
-
 export OS_TENANT_NAME=admin
 export OS_USERNAME=admin
 export OS_PASSWORD=admin_pass
-export OS_AUTH_URL="http://10.10.10.1:5000/v2.0/"
+export OS_AUTH_URL="http://10.141.71.201:5000/v2.0/"
 
 
 source creds-admin
 
 
- 
+5) check if keystone works well
 
-通过命令列出keystone中添加的用户以及得到token：
+list keystone users and token：
 
- 
 keystone user-list
+
 keystone token-get
  
 
-2.7.设置Glance
+2.7 install Glance
 
-安装Glance
+1) install Glance:
 
 apt-get install glance
 
 
-更新/etc/glance/glance-api-paste.ini
+2) update /etc/glance/glance-api-paste.ini
 
 [filter:authtoken]
 paste.filter_factory = keystoneclient.middleware.auth_token:filter_factory
 delay_auth_decision = true
-auth_host = 192.168.1.1
+auth_host = 192.168.0.1
 auth_port = 35357
 auth_protocol = http
 admin_tenant_name = service
@@ -311,11 +314,11 @@ admin_user = glance
 admin_password = service_pass
 
 
-更新/etc/glance/glance-registry-paste.ini
+3) update /etc/glance/glance-registry-paste.ini
 
 [filter:authtoken]
 paste.filter_factory = keystoneclient.middleware.auth_token:filter_factory
-auth_host = 192.168.1.1
+auth_host = 192.168.0.1
 auth_port = 35357
 auth_protocol = http
 admin_tenant_name = service
@@ -323,33 +326,40 @@ admin_user = glance
 admin_password = service_pass
 
 
-更新/etc/glance/glance-api.conf
+4) update /etc/glance/glance-api.conf
 
-sql_connection = mysql://glanceUser:glancePass@192.168.1.1/glance
-和
+sql_connection = mysql://glanceUser:glancePass@192.168.0.1/glance
+
 [paste_deploy]
 flavor = keystone
 
 
-更新/etc/glance/glance-registry.conf
+5) update /etc/glance/glance-registry.conf
 
-sql_connection = mysql://glanceUser:glancePass@192.168.1.1/glance
-和
+sql_connection = mysql://glanceUser:glancePass@192.168.0.1/glance
+
 [paste_deploy]
 flavor = keystone
 
 
-重新启动glance服务：
+6) restart glance service:
 
 cd /etc/init.d/;for i in $( ls glance-* );do service $i restart;done
 
 
-同步glance数据库
+sync glance database:
 
 glance-manage db_sync
 
 
-测试Glance
+check if Glance works well:
+
+glance image-list
+
+
+7) create images
+
+notice: we can also do it on web ui after install.
 
 mkdir images
 cd images
@@ -357,25 +367,20 @@ wget http://cdn.download.cirros-cloud.net/0.3.1/cirros-0.3.1-x86_64-disk.img
 glance image-create --name="Cirros 0.3.1" --disk-format=qcow2 --container-format=bare --is-public=true <cirros-0.3.1-x86_64-disk.img
 
 
-列出镜像检查是否上传成功：
-
-glance image-list
+2.8 install Neutron
 
 
-2.8.设置Neutron
-
-
-安装Neutron组件：
+1) install Neutron：
 
 apt-get install neutron-server
 
 
-编辑/etc/neutron/api-paste.ini
+2) update /etc/neutron/api-paste.ini
 
 
 [filter:authtoken]
 paste.filter_factory = keystoneclient.middleware.auth_token:filter_factory
-auth_host = 192.168.1.1
+auth_host = 192.168.0.1
 auth_port = 35357
 auth_protocol = http
 admin_tenant_name = service
@@ -383,18 +388,18 @@ admin_user = neutron
 admin_password = service_pass
 
 
-编辑OVS配置文件/etc/neutron/plugins/openvswitch/ovs_neutron_plugin.ini
+3) update /etc/neutron/plugins/openvswitch/ovs_neutron_plugin.ini
 
 [OVS]
 #tenant_network_type = gre
 #tunnel_id_ranges = 1:1000
 #enable_tunneling = True
 
-network_vlan_ranges=physnet1,physnet2:100:200
+network_vlan_ranges=physnet1:100:200
 tenant_network_type=vlan
 enable_tunneling=False
 integration_bridge=br-int
-bridge_mappings=physnet1:br-ex1,physnet2:br-ex2
+bridge_mappings=physnet1:br-ex1
 
 
 #Firewall driver for realizing neutron security group function
@@ -403,15 +408,15 @@ firewall_driver = neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewal
 
 
 
-编辑/etc/neutron/neutron.conf
+4) update /etc/neutron/neutron.conf
 
 
 
 [database]
-connection = mysql://neutronUser:neutronPass@192.168.1.1/neutron
+connection = mysql://neutronUser:neutronPass@192.168.0.1/neutron
 
 [keystone_authtoken]
-auth_host = 192.168.1.1
+auth_host = 192.168.0.1
 auth_port = 35357
 auth_protocol = http
 admin_tenant_name = service
@@ -420,21 +425,23 @@ admin_password = service_pass
 signing_dir = /var/lib/neutron/keystone-signing
 
 
-重启Neutron所有服务：
-cd /etc/init.d/; for i in $( ls neutron-* ); do sudo service $i restart; done
+5) restart Neutron service
 
-2.9.设置Nova
+cd /etc/init.d/; for i in $( ls neutron-* ); do service $i restart; done
 
-安装nova组件：
+2.9 install Nova
+
+
+1) install nova:
 
 apt-get install  nova-api nova-cert novnc nova-consoleauth nova-scheduler nova-novncproxy nova-doc nova-conductor nova-ajax-console-proxy 
 
 
-编辑/etc/nova/api-paste.ini修改认证信息：
+2) update /etc/nova/api-paste.ini
 
 [filter:authtoken]
 paste.filter_factory = keystoneclient.middleware.auth_token:filter_factory
-auth_host = 192.168.1.1
+auth_host = 192.168.0.1
 auth_port = 35357
 auth_protocol = http
 admin_tenant_name = service
@@ -445,18 +452,19 @@ signing_dir = /var/lib/nova/keystone-signing
 auth_version = v2.0
 
 
-编辑修改/etc/nova/nova.conf
+3) update /etc/nova/nova.conf
 
 [DEFAULT]
+debug=false
 logdir=/var/log/nova
 state_path=/var/lib/nova
 lock_path=/run/lock/nova
 verbose=True
 api_paste_config=/etc/nova/api-paste.ini
 compute_scheduler_driver=nova.scheduler.simple.SimpleScheduler
-rabbit_host=192.168.1.1
-nova_url=http://192.168.1.1:8774/v1.1/
-sql_connection=mysql://novaUser:novaPass@192.168.1.1/nova
+rabbit_host=192.168.0.1
+nova_url=http://192.168.0.1:8774/v1.1/
+sql_connection=mysql://novaUser:novaPass@192.168.0.1/nova
 root_helper=sudo nova-rootwrap /etc/nova/rootwrap.conf
 
 # Auth
@@ -464,24 +472,700 @@ use_deprecated_auth=false
 auth_strategy=keystone
 
 # Imaging service
-glance_api_servers=192.168.1.1:9292
+glance_api_servers=192.168.0.1:9292
 image_service=nova.image.glance.GlanceImageService
 
 # Vnc configuration
 novnc_enabled=true
-novncproxy_base_url=http://10.10.10.1:6080/vnc_auto.html
+novncproxy_base_url=http://10.141.71.201:6080/vnc_auto.html
 novncproxy_port=6080
-vncserver_proxyclient_address=192.168.1.1
+vncserver_proxyclient_address=192.168.0.1
 vncserver_listen=0.0.0.0
 
 # Network settings
 network_api_class=nova.network.neutronv2.api.API
-neutron_url=http://192.168.1.1:9696
+neutron_url=http://192.168.0.1:9696
 neutron_auth_strategy=keystone
 neutron_admin_tenant_name=service
 neutron_admin_username=neutron
 neutron_admin_password=service_pass
-neutron_admin_auth_url=http://192.168.1.1:35357/v2.0
+neutron_admin_auth_url=http://192.168.0.1:35357/v2.0
+libvirt_vif_driver=nova.virt.libvirt.vif.LibvirtHybridOVSBridgeDriver
+linuxnet_interface_driver=nova.network.linux_net.LinuxOVSInterfaceDriver
+#If you want Neutron + Nova Security groups
+firewall_driver=nova.virt.firewall.NoopFirewallDriver
+security_group_api=neutron
+#If you want Nova Security groups only, comment the two lines above and uncomment line -1-.
+#-1-firewall_driver=nova.virt.libvirt.firewall.IptablesFirewallDriver
+
+#Metadata
+service_neutron_metadata_proxy = True
+neutron_metadata_proxy_shared_secret = helloOpenStack
+
+# Compute #
+compute_driver=libvirt.LibvirtDriver
+
+# Cinder #
+volume_api_class=nova.volume.cinder.API
+osapi_volume_listen_port=5900
+
+
+4) sync db
+
+nova-manage db sync
+
+(notice: need root)
+
+
+
+5) restart nova service
+
+cd /etc/init.d/; for i in $( ls nova-* ); do  service $i restart; done
+
+
+6) check nova service
+
+nova-manage service list
+
+notice: need creds-admin
+
+
+2.10 install Cinder
+
+1) install Cinder
+
+apt-get install cinder-api cinder-scheduler
+
+notice: 
+we install cinder-api cinder-scheduler on control node.
+we can install storage node( cinder-volume iscsitarget open-iscsi iscsitarget-dkms ) with compute node.
+
+
+2) update /etc/cinder/api-paste.ini
+
+[filter:authtoken]
+paste.filter_factory = keystoneclient.middleware.auth_token:filter_factory
+service_protocol = http
+service_host = 10.141.71.201
+service_port = 5000
+auth_host = 192.168.0.1
+auth_port = 35357
+auth_protocol = http
+admin_tenant_name = service
+admin_user = cinder
+admin_password = service_pass
+
+
+3) update /etc/cinder/cinder.conf
+
+[DEFAULT]
+rootwrap_config=/etc/cinder/rootwrap.conf
+sql_connection = mysql://cinderUser:cinderPass@192.168.0.1/cinder
+api_paste_config = /etc/cinder/api-paste.ini
+iscsi_helper=ietadm
+volume_name_template = volume-%s
+volume_group = cinder-volumes
+verbose = True
+auth_strategy = keystone
+#osapi_volume_listen_port=5900
+rabbit_host = 192.168.0.1
+
+4) sync data:
+cinder-manage db sync
+
+
+5) restart cinder service and check
+
+cd /etc/init.d/; for i in $( ls cinder-* ); do service $i restart; done
+
+
+cd /etc/init.d/; for i in $( ls cinder-* ); do service $i status; done
+
+
+2.11 install Horizon
+
+1) install horizon：
+
+apt-get install openstack-dashboard memcached
+
+notice: if you don't like OpenStack ubuntu theme, you can remove it：
+dpkg --purge openstack-dashboard-ubuntu-theme
+
+
+2) restart apache and memcached:
+
+service apache2 restart; service memcached restart
+
+notice: if there is a error "could not reliably determine the server's fully domain name,using 127.0.0.1 for ServerName" when restart apache2.
+you can fix it by update /etc/apache2/apache2.conf.
+
+add
+ServerName localhost
+
+
+3) use browser to visit http://10.141.71.201/horizon
+
+user:admin
+passwd:admin_pass。
+
+
+2.12 install Ceilometer(optional)
+
+1) install Metering
+
+apt-get install ceilometer-api ceilometer-collector ceilometer-agent-central python-ceilometerclient
+
+2) install MongoDB
+
+apt-get install mongodb
+
+
+3) config mongodb and restart
+
+sed -i 's/127.0.0.1/0.0.0.0/g' /etc/mongodb.conf
+
+service mongodb restart
+
+4) create ceilometer database
+#mongo
+>use ceilometer
+>db.addUser({ user:"ceilometer",pwd:"CEILOMETER_DBPASS",roles:["readWrite","dbAdmin"]})
+
+
+
+5) create a token by openssl. it will be used between Ceilometer components.
+
+openssl rand -hex 10    
+cefafd2288d0e4e43005 (notice: record this token, it will be used later)
+
+
+
+6)config token
+
+vi /etc/ceilometer/ceilometer.conf
+
+[publisher_rpc]
+# Secret value for signing metering messages (string value)
+metering_secret = cefafd2288d0e4e43005      #from record toke before
+
+
+[database]
+
+# The SQLAlchemy connection string used to connect to the
+# database (string value)
+connection = mongodb://ceilometer:CEILOMETER_DBPASS@192.168.0.1:27017/ceilometer
+
+
+[DEFAULT]
+log_dir = /var/log/ceilometer
+
+rabbit_host = 192.168.0.1
+
+
+[keystone_authtoken]
+auth_host = 192.168.0.1
+auth_port = 35357
+auth_protocol = http
+admin_tenant_name = service
+admin_user = ceilometer
+admin_password = service_pass
+
+[service_credentials]
+#os_auth_url = http://192.168.0.1:5000/v2.0
+os_tenant_name = service
+os_username = ceilometer
+os_password = service_pass
+os_region_name = RegionOne
+
+
+7)  config glance service
+
+vi /etc/glance/glance-api.conf
+
+[DEFAULT]
+notifier_strategy=rabbit
+rabbit_host=192.168.0.1
+
+
+8) restart glance service
+
+cd /etc/init.d/;for i in $(ls glance-* );do service $i restart;done
+
+cd /etc/init.d;for i in $( ls ceilometer-* );do service $i restart;done
+
+
+9) config cinder service
+
+vi /etc/cinder/cinder.conf
+
+control_exchange=cinder
+notification_driver=cinder.openstack.common.notifier.rpc_notifier
+
+10) restart Cinder
+
+cd /etc/init.d/;for i in $( ls cinder-* );do service $i restart;done
+
+cd /etc/init.d;for i in $( ls ceilometer-* );do service $i restart;done
+
+
+
+3. network node
+
+
+3.1 install os
+
+1) install ubuntu 12.04 Server 64bits
+
+2) login as root
+
+3) add Havana repository
+
+apt-get install python-software-properties
+add-apt-repository cloud-archive:havana
+
+4) update system
+
+apt-get update
+apt-get upgrade
+apt-get dist-upgrade
+
+
+5) install ntp
+
+apt-get install ntp
+
+
+sed -i 's/server 0.ubuntu.pool.ntp.org/#server 0.ubuntu.pool.ntp.org/g' /etc/ntp.conf
+sed -i 's/server 1.ubuntu.pool.ntp.org/#server 1.ubuntu.pool.ntp.org/g' /etc/ntp.conf
+sed -i 's/server 2.ubuntu.pool.ntp.org/#server 2.ubuntu.pool.ntp.org/g' /etc/ntp.conf
+sed -i 's/server 3.ubuntu.pool.ntp.org/#server 3.ubuntu.pool.ntp.org/g' /etc/ntp.conf
+
+#Set the network node to follow up your conroller node
+sed -i 's/server ntp.ubuntu.com/server 192.168.0.1/g' /etc/ntp.conf
+
+
+service ntp restart
+
+3.2 config networks
+
+
+# ext network
+auto eth0
+iface eth0 inet manual
+up ifconfig $IFACE 0.0.0.0 up
+up ip link set $IFACE promisc on
+down ip link set $IFACE promisc off
+down ifconfig $IFACE down
+
+
+# int network
+auto eth1
+iface eth1 inet static
+address 192.168.0.2
+netmask 255.255.255.0
+
+3) config ipforward
+
+vi /etc/sysctl.conf
+
+net.ipv4.ip_forward=1
+net.ipv4.conf.all.rp_filter=0
+net.ipv4.conf.default.rp_filter=0
+
+
+sysctl -p
+
+3.3 install OpenVSwitch
+
+1) install OpenVSwitch
+
+apt-get install  openvswitch-controller openvswitch-switch openvswitch-datapath-dkms
+
+
+/etc/init.d/openvswitch-switch restart
+
+
+2) create ovs bridge:
+
+#br-int will be used for VM integration
+ovs-vsctl add-br br-int
+
+#br-ex is used to make to VM accessable from the internet
+ovs-vsctl add-br br-ex1
+
+ovs-vsctl add-port br-ex1 eth0
+
+
+/etc/init.d/networking restart
+
+
+ovs-vsctl list-br
+br-ex1
+br-int
+
+ovs-vsctl show
+    Bridge br-int
+        Port br-int
+            Interface br-int
+                type: internal
+    Bridge br-ex
+        Port "eth2"
+            Interface "eth0"
+        Port br-ex
+            Interface br-ex
+                type: internal
+    ovs_version: "1.4.0+build0"
+
+
+3.4 install Neutron
+
+1) install Neutron
+
+apt-get install neutron-plugin-openvswitch-agent neutron-dhcp-agent neutron-l3-agent neutron-metadata-agent
+
+
+2) update /etc/neutron/api-paste.ini
+
+[filter:authtoken]
+paste.filter_factory = keystoneclient.middleware.auth_token:filter_factory
+auth_host = 192.168.0.1
+auth_port = 35357
+auth_protocol = http
+admin_tenant_name = service
+admin_user = neutron
+admin_password = service_pass
+
+3) update /etc/neutron/plugins/openvswitch/ovs_neutron_plugin.ini
+
+[OVS]
+#tenant_network_type = gre
+#enable_tunneling = True
+#tunnel_id_ranges = 1:1000
+#integration_bridge = br-int
+#tunnel_bridge = br-tun
+#local_ip = 192.168.0.2
+
+network_vlan_ranges=physnet1:100:200
+tenant_network_type=vlan
+enable_tunneling=False
+integration_bridge=br-int
+bridge_mappings=physnet1:br-ex1
+
+#Firewall driver for realizing neutron security group function
+[SECURITYGROUP]
+firewall_driver = neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver
+
+
+4) update /etc/neutron/metadata_agent.ini
+
+auth_url = http://192.168.0.1:35357/v2.0
+auth_region = RegionOne
+admin_tenant_name = service
+admin_user = neutron
+admin_password = service_pass
+
+# IP address used by Nova metadata server
+nova_metadata_ip = 192.168.0.1
+    
+# TCP Port used by Nova metadata server
+nova_metadata_port = 8775
+
+metadata_proxy_shared_secret = helloOpenStack
+
+5) update /etc/neutron/neutron.conf
+
+rabbit_host = 192.168.0.1
+    
+[keystone_authtoken]
+auth_host = 192.168.0.1
+auth_port = 35357
+auth_protocol = http
+admin_tenant_name = service
+admin_user = neutron
+admin_password = service_pass
+signing_dir = /var/lib/quantum/keystone-signing
+
+[database]
+connection = mysql://neutronUser:neutronPass@192.168.0.1/neutron
+
+6) update /etc/neutron/l3_agent.ini:
+
+[DEFAULT]
+interface_driver = neutron.agent.linux.interface.OVSInterfaceDriver
+use_namespaces = True
+external_network_bridge = br-ex
+signing_dir = /var/cache/neutron
+admin_tenant_name = service
+admin_user = neutron
+admin_password = service_pass
+auth_url = http://192.168.0.1:35357/v2.0
+l3_agent_manager = neutron.agent.l3_agent.L3NATAgentWithStateReport
+root_helper = sudo neutron-rootwrap /etc/neutron/rootwrap.conf
+
+7) update /etc/neutron/dhcp_agent.ini:
+
+[DEFAULT]
+interface_driver = neutron.agent.linux.interface.OVSInterfaceDriver
+dhcp_driver = neutron.agent.linux.dhcp.Dnsmasq
+use_namespaces = True
+signing_dir = /var/cache/neutron
+admin_tenant_name = service
+admin_user = neutron
+admin_password = service_pass
+auth_url = http://192.168.0.1:35357/v2.0
+dhcp_agent_manager = neutron.agent.dhcp_agent.DhcpAgentWithStateReport
+root_helper = sudo neutron-rootwrap /etc/neutron/rootwrap.conf
+state_path = /var/lib/neutron
+
+8) restart serivce
+
+cd /etc/init.d/; for i in $( ls neutron-* ); do service $i restart; done
+ 
+
+
+
+4. compute node
+
+
+4.1 install os
+
+1) install ubuntu 12.04 Server 64bits
+
+2) login as root
+
+3) add Havana repository
+
+apt-get install python-software-properties
+add-apt-repository cloud-archive:havana
+
+4) update system
+
+apt-get update
+apt-get upgrade
+apt-get dist-upgrade
+
+
+5) install ntp
+
+apt-get install ntp
+
+
+sed -i 's/server 0.ubuntu.pool.ntp.org/#server 0.ubuntu.pool.ntp.org/g' /etc/ntp.conf
+sed -i 's/server 1.ubuntu.pool.ntp.org/#server 1.ubuntu.pool.ntp.org/g' /etc/ntp.conf
+sed -i 's/server 2.ubuntu.pool.ntp.org/#server 2.ubuntu.pool.ntp.org/g' /etc/ntp.conf
+sed -i 's/server 3.ubuntu.pool.ntp.org/#server 3.ubuntu.pool.ntp.org/g' /etc/ntp.conf
+
+
+#Set the network node to follow up your conroller node
+sed -i 's/server ntp.ubuntu.com/server 192.168.0.1/g' /etc/ntp.conf
+
+service ntp restart
+
+
+4.2 config network
+
+1)
+vi /etc/network/interfaces:
+
+# The loopback network interface
+auto lo
+iface lo inet loopback
+    
+
+# VM Configuration
+auto eth1
+iface eth1 inet static
+address 192.168.0.3
+netmask 255.255.255.0
+
+
+2) config ip forward
+
+sed -i 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/' /etc/sysctl.conf
+sysctl -p
+
+
+4.3 install KVM
+
+
+1) check if your hardware supports virtualization:
+
+apt-get install cpu-checker
+kvm-ok
+
+notice: if your cpu is ok, check bios setting to enable virtualization support
+
+
+2) install kvm
+
+apt-get install -y kvm libvirt-bin pm-utils
+
+
+
+3) update /etc/libvirt/qemu.conf
+
+
+cgroup_device_acl = [
+"/dev/null", "/dev/full", "/dev/zero",
+"/dev/random", "/dev/urandom",
+"/dev/ptmx", "/dev/kvm", "/dev/kqemu",
+"/dev/rtc", "/dev/hpet","/dev/net/tun"
+]
+
+do not use '#'
+(old config: # "/dev/rtc","/dev/hpet", "/dev/vfio/vfio")
+
+
+4) delete default setting
+
+virsh net-destroy default
+virsh net-undefine default
+
+5) update /etc/libvirt/libvirtd.conf
+
+listen_tls = 0
+listen_tcp = 1
+auth_tcp = "none"
+
+6) update /etc/init/libvirt-bin.conf
+
+env libvirtd_opts="-d -l"
+
+7) update /etc/default/libvirt-bin
+
+libvirtd_opts="-d -l"
+
+
+8) restart libvirt
+
+service libvirt-bin restart
+
+
+
+4.4 install OpenVSwitch
+
+1) install OpenVSwitch
+
+apt-get install  openvswitch-switch openvswitch-datapath-dkms
+
+service openvswitch-switch restart
+
+2) create ovs bridge
+
+ovs-vsctl add-br br-int
+
+
+4.5 install Neutron
+
+1) install Neutron OpenVSwitch agent
+
+apt-get install neutron-plugin-openvswitch-agent
+
+2) update /etc/neutron/plugins/openvswitch/ovs_neutron_plugin.ini
+
+[OVS]
+#tenant_network_type = gre
+#tunnel_id_ranges = 1:1000
+#integration_bridge = br-int
+#tunnel_bridge = br-tun
+#local_ip = 192.168.0.3
+#enable_tunneling = True
+
+network_vlan_ranges=physnet1:100:200
+tenant_network_type=vlan
+enable_tunneling=False
+integration_bridge=br-int
+bridge_mappings=physnet1:br-ex1
+
+#Firewall driver for realizing quantum security group function
+[SECURITYGROUP]
+firewall_driver = neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver
+
+3) update /etc/neutron/neutron.conf
+
+rabbit_host = 192.168.0.1
+
+[keystone_authtoken]
+auth_host = 192.168.0.1
+auth_port = 35357
+auth_protocol = http
+admin_tenant_name = service
+admin_user = neutron
+admin_password = service_pass
+signing_dir = /var/lib/neutron/keystone-signing
+
+[database]
+connection = mysql://neutronUser:neutronPass@192.168.0.1/neutron
+
+
+4) restart service
+
+service neutron-plugin-openvswitch-agent restart
+
+
+4.6 install Nova
+
+
+1) install nova
+
+apt-get install nova-compute-kvm python-guestfs
+
+(if your hardware do not support virtualization，you can change nova-compute-kvm to nova-compute-qemu
+and update /etc/nova/nova-compute.conf  with libvirt_type=qemu)
+
+
+2) update /etc/nova/api-paste.ini
+
+[filter:authtoken]
+paste.filter_factory = keystoneclient.middleware.auth_token:filter_factory
+auth_host = 192.168.0.1
+auth_port = 35357
+auth_protocol = http
+admin_tenant_name = service
+admin_user = nova
+admin_password = service_pass
+signing_dirname = /tmp/keystone-signing-nova
+# Workaround for https://bugs.launchpad.net/nova/+bug/1154809
+auth_version = v2.0
+
+3) update /etc/nova/nova.conf
+
+[DEFAULT]
+debug=false
+logdir=/var/log/nova
+state_path=/var/lib/nova
+lock_path=/run/lock/nova
+verbose=True
+api_paste_config=/etc/nova/api-paste.ini
+compute_scheduler_driver=nova.scheduler.simple.SimpleScheduler
+rabbit_host=192.168.0.1
+nova_url=http://192.168.0.1:8774/v1.1/
+sql_connection=mysql://novaUser:novaPass@192.168.0.1/nova
+root_helper=sudo nova-rootwrap /etc/nova/rootwrap.conf
+
+# Auth
+use_deprecated_auth=false
+auth_strategy=keystone
+
+# Imaging service
+glance_api_servers=192.168.0.1:9292
+image_service=nova.image.glance.GlanceImageService
+
+# Vnc configuration
+novnc_enabled=true
+novncproxy_base_url=http://10.141.71.201:6080/vnc_auto.html
+novncproxy_port=6080
+vncserver_proxyclient_address=192.168.0.3                   # different from control node
+vncserver_listen=0.0.0.0
+
+# Network settings
+network_api_class=nova.network.neutronv2.api.API
+neutron_url=http://192.168.0.1:9696
+neutron_auth_strategy=keystone
+neutron_admin_tenant_name=service
+neutron_admin_username=neutron
+neutron_admin_password=service_pass
+neutron_admin_auth_url=http://192.168.0.1:35357/v2.0
 libvirt_vif_driver=nova.virt.libvirt.vif.LibvirtHybridOVSBridgeDriver
 linuxnet_interface_driver=nova.network.linux_net.LinuxOVSInterfaceDriver
 #If you want Neutron + Nova Security groups
@@ -503,46 +1187,67 @@ osapi_volume_listen_port=5900
 
 
 
-同步数据库：
+4) restart service
 
-nova-manage db sync
+cd /etc/init.d/; for i in $( ls nova-* ); do service $i restart; done
 
 
-重启Nova所有服务：
-
-cd /etc/init.d/; for i in $( ls nova-* ); do  service $i restart; done
-
-检查所有nova服务是否启动正常：
+5) check on control node
 
 nova-manage service list
 
+(notice: need creds-admin)
 
 
-2.10.设置Cinder
+4.7 install cinder volume service
 
-安装Cinder软件包
+notice: we usually install cinder service with compute node
 
-apt-get install  cinder-api cinder-scheduler cinder-volume iscsitarget open-iscsi iscsitarget-dkms
+1)
 
-配置iscsi服务：
+apt-get install cinder-volume iscsitarget open-iscsi iscsitarget-dkms
+
+
+notice:
+if dkms build error, we must downgrade linux kernel from 3.11 to 3.8
+
+apt-get install linux-image-3.8.0-37-generic linux-headers-3.8.0-37-generic
+
+dpkg -get-selections | grep linux
+apt-get remove linux-image-3.11.0-15-generic linux-image-3.11.0-18-generic
+
+
+2) config iscsi
 
 sed -i 's/false/true/g' /etc/default/iscsitarget
 
-重启服务：
+
+3) restart iscsi service
 
 service iscsitarget restart
 service open-iscsi restart
 
+
+4) check iscsi target serice
+
+notice: we use ietd instead of tgt
+
 /* ietd */
 
 lsof -i:3260
+
 COMMAND  PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
 tgtd    1810 root    4u  IPv4   1406      0t0  TCP *:3260 (LISTEN)
 tgtd    1810 root    5u  IPv6   1407      0t0  TCP *:3260 (LISTEN)
 tgtd    1813 root    4u  IPv4   1406      0t0  TCP *:3260 (LISTEN)
 tgtd    1813 root    5u  IPv6   1407      0t0  TCP *:3260 (LISTEN)
 
+if tgt is running, we must stop it and restart service.
+
 service tgt stop
+
+service iscsitarget restart
+service open-iscsi restart
 
 
 lsof -i:3260
@@ -551,23 +1256,14 @@ ietd    39894 root    7u  IPv4 225635      0t0  TCP *:3260 (LISTEN)
 ietd    39894 root    8u  IPv6 225636      0t0  TCP *:3260 (LISTEN)
 
 
-/* if dkms build error */
-
-apt-get install linux-image-3.8.0-37-generic linux-headers-3.8.0-37-generic
-
-dpkg -get-selections | grep linux
-apt-get remove linux-image-3.11.0-15-generic linux-image-3.11.0-18-generic
-
-
-
-配置/etc/cinder/api-paste.ini
+5) update /etc/cinder/api-paste.ini
 
 [filter:authtoken]
 paste.filter_factory = keystoneclient.middleware.auth_token:filter_factory
 service_protocol = http
-service_host = 10.10.10.1
+service_host = 10.141.71.201
 service_port = 5000
-auth_host = 192.168.1.1
+auth_host = 192.168.0.1
 auth_port = 35357
 auth_protocol = http
 admin_tenant_name = service
@@ -575,11 +1271,11 @@ admin_user = cinder
 admin_password = service_pass
 
 
-编辑/etc/cinder/cinder.conf
+6) update /etc/cinder/cinder.conf
 
 [DEFAULT]
 rootwrap_config=/etc/cinder/rootwrap.conf
-sql_connection = mysql://cinderUser:cinderPass@192.168.1.1/cinder
+sql_connection = mysql://cinderUser:cinderPass@192.168.0.1/cinder
 api_paste_config = /etc/cinder/api-paste.ini
 iscsi_helper=ietadm
 volume_name_template = volume-%s
@@ -587,15 +1283,22 @@ volume_group = cinder-volumes
 verbose = True
 auth_strategy = keystone
 #osapi_volume_listen_port=5900
+rabbit_host = 192.168.0.1
+iscsi_ip_address = 192.168.0.3         #local ip
+
+7) create cinder-volumes
+
+we can use a real partition(recommend):
+
+pvcreate /dev/cciss/c0d0p3
+vgcreate cinder-volumes /dev/cciss/c0d0p3
+
+notice: /dev/cciss/c0d0p3 is a real partition.you can list partitions by "fdisk -l"
 
 
-接下来同步数据库：
-cinder-manage db sync
 
+wen can also use a file(not recommend):
 
-最后别忘记创建一个卷组命名为cinder-volumes:
-
-1)
 dd if=/dev/zero of=cinder-volumes bs=1 count=0 seek=2G
 losetup /dev/loop2 cinder-volumes
 fdisk /dev/loop2
@@ -609,628 +1312,37 @@ t
 8e
 w
 
-
-2)创建物理卷和卷组：
-
 pvcreate /dev/loop2
 vgcreate cinder-volumes /dev/loop2
 
-注意：重启后卷组不会自动挂载，如下进行设置：
 
-vim /etc/init/losetup.conf
+8) restart service
 
-description "set up loop devices"
-start on mounted MOUNTPOINT=/
-task
-exec /sbin/losetup  /dev/loop2 /home/cloud/cinder-volumes
+cd /etc/init.d/; for i in $( ls cinder-* ); do sudo service $i restart; done
 
+cd /etc/init.d/; for i in $( ls cinder-* ); do sudo service $i status; done
+cinder-volume start/running, process 41513
 
 
-3)
-pvcreate /dev/sda4
-vgcreate cinder-volumes /dev/sda4
+9) check on control node
 
 
+cinder-manage host list
 
-重启cinder服务：
+(notice: need creds-admin)
 
-cd /etc/init.d/; for i in $( ls cinder-* ); do service $i restart; done
 
-确认Cinder服务在运行：
+notice: 
+kvm -> open-iscsi(initiator) ---(net)---> iscsitarget(target) -> lvm -> file(/dev/loop2) or partition(/dev/cciss/c0d0p3)。
 
-cd /etc/init.d/; for i in $( ls cinder-* ); do service $i status; done
 
+4.8 install ceilometer(optional)
 
-2.11.设置Horizon
+1) install ceilometer
 
-安装horizon：
-
-apt-get install openstack-dashboard memcached
-
-如果你不喜欢OpenStack ubuntu主题，你可以停用它：
-
-dpkg --purge openstack-dashboard-ubuntu-theme
-
-重启Apache和memcached服务：
-
-service apache2 restart; service memcached restart
-
-注意：重启apache2,出现could not reliably determine the server's fully domain name,using 127.0.0.1 for ServerName.这是由于没有解析出域名导致的。
-解决方法如下：编辑/etc/apache2/apache2.conf，添加如下操作即可。
-
-ServerName localhost
-
-正常情况下，这时访问 http://10.10.10.1/horizon 就可以看到web界面了。 用户admin,密码admin_pass。
-
-
-2.12.设置Ceilometer
-
-安装Metering服务
-
-apt-get install ceilometer-api ceilometer-collector ceilometer-agent-central python-ceilometerclient
-
-安装MongoDB数据库
-
-apt-get install mongodb
-
-配置mongodb监听所有网络接口请求：
-
-sed -i 's/127.0.0.1/0.0.0.0/g' /etc/mongodb.conf
-
-service mongodb restart
-
-创建ceilometer数据库用户：
-#mongo
->use ceilometer
->db.addUser({ user:"ceilometer",pwd:"CEILOMETER_DBPASS",roles:["readWrite","dbAdmin"]})
-
-
-利用openssl生成一个随机token密钥，该密钥用于Ceilometer各个组件之间通信加密使用：
-
-openssl rand -hex 10    
-cefafd2288d0e4e43005 （注：这是命令生成的随机token）
-
-
-
-编辑/etc/ceilometer/ceilometer.conf
-
-配置token
-
-[publisher_rpc]
-# Secret value for signing metering messages (string value)
-metering_secret = cefafd2288d0e4e43005
-
-
-配置Metering服务使用数据库
-
-...
-[database]
-...
-# The SQLAlchemy connection string used to connect to the
-# database (string value)
-connection = mongodb://ceilometer:CEILOMETER_DBPASS@192.168.1.1:27017/ceilometer
-...
-
-
-配置RabbitMQ访问
-...
-[DEFAULT]
-log_dir = /var/log/ceilometer
-
-rabbit_host = 192.168.1.1
-
-
-配置认证信息
-
-[keystone_authtoken]
-auth_host = 192.168.1.1
-auth_port = 35357
-auth_protocol = http
-admin_tenant_name = service
-admin_user = ceilometer
-admin_password = service_pass
-
-[service_credentials]
-#os_auth_url = http://192.168.1.1:5000/v2.0
-os_tenant_name = service
-os_username = ceilometer
-os_password = service_pass
-os_region_name = RegionOne
-
-
-简单获取镜像，你必须配置镜像服务以发送通知给总线，
-编辑/etc/glance/glance-api.conf
-
-[DEFAULT]
-notifier_strategy=rabbit
-rabbit_host=192.168.1.1
-
-重启镜像服务
-cd /etc/init.d/;for i in $(ls glance-* );do service $i restart;done
-
-重启服务，使配置信息生效
-
-cd /etc/init.d;for i in $( ls ceilometer-* );do service $i restart;done
-
-编辑/etc/cinder/cinder.conf，获取volume。
-
-control_exchange=cinder
-notification_driver=cinder.openstack.common.notifier.rpc_notifier
-
-重启Cinder服务
-
-cd /etc/init.d/;for i in $( ls cinder-* );do service $i restart;done
-
-
-3.网络结点
-
-安装好ubuntu 12.04 Server 64bits后，进入root模式下完成配置：
-
-sudo su - 
-
-添加Havana源：
-
-apt-get install python-software-properties
-add-apt-repository cloud-archive:havana
-
-升级系统：
-
-apt-get update
-apt-get upgrade
-apt-get dist-upgrade
-
-安装ntp服务：
-
-apt-get install ntp
-
-配置ntp服务从控制节点上同步时间：
-
-sed -i 's/server 0.ubuntu.pool.ntp.org/#server 0.ubuntu.pool.ntp.org/g' /etc/ntp.conf
-sed -i 's/server 1.ubuntu.pool.ntp.org/#server 1.ubuntu.pool.ntp.org/g' /etc/ntp.conf
-sed -i 's/server 2.ubuntu.pool.ntp.org/#server 2.ubuntu.pool.ntp.org/g' /etc/ntp.conf
-sed -i 's/server 3.ubuntu.pool.ntp.org/#server 3.ubuntu.pool.ntp.org/g' /etc/ntp.conf
-
-#Set the network node to follow up your conroller node
-sed -i 's/server ntp.ubuntu.com/server 192.168.1.1/g' /etc/ntp.conf
-
-service ntp restart
-
-
-配置网络：
-
-# OpenStack management
-auto eth0
-iface eth0 inet static
-address 192.168.1.2
-netmask 255.255.255.0
-
-# ext network
-auto eth1
-iface eth1 inet manual
-up ifconfig $IFACE 0.0.0.0 up
-up ip link set $IFACE promisc on
-down ip link set $IFACE promisc off
-down ifconfig $IFACE down
-
-auto eth2
-iface eth1 inet manual
-up ifconfig $IFACE 0.0.0.0 up
-up ip link set $IFACE promisc on
-down ip link set $IFACE promisc off
-down ifconfig $IFACE down
-
-
-编辑/etc/sysctl.conf,开启路由转发和关闭包目的过滤，这样网络节点能协作VMs的traffic。
-
-net.ipv4.ip_forward=1
-net.ipv4.conf.all.rp_filter=0
-net.ipv4.conf.default.rp_filter=0
-
-#运行下面命令，使生效
-sysctl -p
-
-
-重启网络服务：
-
-/etc/init.d/networking restart
-
-
-
-3.3.安装OpenVSwitch
-
-安装OpenVSwitch软件包：
-
-apt-get install  openvswitch-controller openvswitch-switch openvswitch-datapath-dkms
-
-/etc/init.d/openvswitch-switch restart
-
-创建网桥
-
-#br-int will be used for VM integration
-ovs-vsctl add-br br-int
-
-#br-ex is used to make to VM accessable from the internet
-ovs-vsctl add-br br-ex1
-ovs-vsctl add-br br-ex2
-
-把网卡eth2加入br-ex：
-
-ovs-vsctl add-port br-ex1 eth1
-ovs-vsctl add-port br-ex2 eth2
-
-
-
-查看网桥配置：
-
-root@network:~# ovs-vsctl list-br
-br-ex1
-br-ex2
-br-int
-
-root@network:~# ovs-vsctl show
-
-
-
-3.4.Neutron-*
-
-安装Neutron组件：
-
-apt-get install neutron-plugin-openvswitch-agent neutron-dhcp-agent neutron-l3-agent neutron-metadata-agent
-
-
-编辑/etc/neutron/api-paste.ini
-
-[filter:authtoken]
-paste.filter_factory = keystoneclient.middleware.auth_token:filter_factory
-auth_host = 192.168.1.1
-auth_port = 35357
-auth_protocol = http
-admin_tenant_name = service
-admin_user = neutron
-admin_password = service_pass
-
-编辑OVS配置文件：/etc/neutron/plugins/openvswitch/ovs_neutron_plugin.ini
-
-[OVS]
-#tenant_network_type = gre
-#enable_tunneling = True
-#tunnel_id_ranges = 1:1000
-#integration_bridge = br-int
-#tunnel_bridge = br-tun
-#local_ip = 192.168.1.2
-
-network_vlan_ranges=physnet1,physnet2:100:200
-tenant_network_type=vlan
-enable_tunneling=False
-integration_bridge=br-int
-bridge_mappings=physnet1:br-ex1,physnet2:br-ex2
-
-#Firewall driver for realizing neutron security group function
-[SECURITYGROUP]
-firewall_driver = neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver
-
-
-更新/etc/neutron/metadata_agent.ini
-
-auth_url = http://192.168.1.1:35357/v2.0
-auth_region = RegionOne
-admin_tenant_name = service
-admin_user = neutron
-admin_password = service_pass
-
-# IP address used by Nova metadata server
-nova_metadata_ip = 192.168.1.1
-    
-# TCP Port used by Nova metadata server
-nova_metadata_port = 8775
-
-metadata_proxy_shared_secret = helloOpenStack
-
-编辑/etc/neutron/neutron.conf
-
-rabbit_host = 192.168.1.1
-    
-[keystone_authtoken]
-auth_host = 192.168.1.1
-auth_port = 35357
-auth_protocol = http
-admin_tenant_name = service
-admin_user = neutron
-admin_password = service_pass
-signing_dir = /var/lib/quantum/keystone-signing
-
-[database]
-connection = mysql://neutronUser:neutronPass@192.168.1.1/neutron
-
-编辑/etc/neutron/l3_agent.ini:
-
-[DEFAULT]
-interface_driver = neutron.agent.linux.interface.OVSInterfaceDriver
-use_namespaces = True
-external_network_bridge = br-ex
-signing_dir = /var/cache/neutron
-admin_tenant_name = service
-admin_user = neutron
-admin_password = service_pass
-auth_url = http://192.168.1.1:35357/v2.0
-l3_agent_manager = neutron.agent.l3_agent.L3NATAgentWithStateReport
-root_helper = sudo neutron-rootwrap /etc/neutron/rootwrap.conf
-
-编辑/etc/neutron/dhcp_agent.ini:
-
-[DEFAULT]
-interface_driver = neutron.agent.linux.interface.OVSInterfaceDriver
-dhcp_driver = neutron.agent.linux.dhcp.Dnsmasq
-use_namespaces = True
-signing_dir = /var/cache/neutron
-admin_tenant_name = service
-admin_user = neutron
-admin_password = service_pass
-auth_url = http://192.168.1.1:35357/v2.0
-dhcp_agent_manager = neutron.agent.dhcp_agent.DhcpAgentWithStateReport
-root_helper = sudo neutron-rootwrap /etc/neutron/rootwrap.conf
-state_path = /var/lib/neutron
-
-重启服务：
-cd /etc/init.d/; for i in $( ls neutron-* ); do service $i restart; done
- 
-
-4.计算结点
-
-4.1.准备结点
-
-安装好ubuntu 12.04 Server 64bits后，进入root模式进行安装：
-sudo su - 
-
-添加Havana源：
-
-apt-get install python-software-properties
-add-apt-repository cloud-archive:havana
-
-升级系统：
-
-apt-get update
-apt-get upgrade
-apt-get dist-upgrade
-
-
-安装ntp服务：
-
-apt-get install ntp
-
-配置ntp服务从控制节点同步时间：
-
-sed -i 's/server 0.ubuntu.pool.ntp.org/#server 0.ubuntu.pool.ntp.org/g' /etc/ntp.conf
-sed -i 's/server 1.ubuntu.pool.ntp.org/#server 1.ubuntu.pool.ntp.org/g' /etc/ntp.conf
-sed -i 's/server 2.ubuntu.pool.ntp.org/#server 2.ubuntu.pool.ntp.org/g' /etc/ntp.conf
-sed -i 's/server 3.ubuntu.pool.ntp.org/#server 3.ubuntu.pool.ntp.org/g' /etc/ntp.conf
-
-
-#Set the network node to follow up your conroller node
-sed -i 's/server ntp.ubuntu.com/server 192.168.1.1/g' /etc/ntp.conf
-
-service ntp restart
-
-
-4.2.配置网络
-
-如下配置网络/etc/network/interfaces:
-
-# The loopback network interface
-auto lo
-iface lo inet loopback
-    
-# Not internet connected(used for OpenStack management)
-auto eth0
-iface eth0 inet static
-address 192.168.1.3
-netmask 255.255.255.0
-
-
-开启路由转发：
-sed -i 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/' /etc/sysctl.conf
-sysctl -p
-
-
-4.3.KVM
-
-确保你的硬件启动virtualization:
-
-apt-get install cpu-checker
-kvm-ok
-
-安装kvm并配置它：
-
-apt-get install -y kvm libvirt-bin pm-utils
-
-在/etc/libvirt/qemu.conf配置文件中启用 cgroup_device_acl 数组：
-
-cgroup_device_acl = [
-"/dev/null", "/dev/full", "/dev/zero",
-"/dev/random", "/dev/urandom",
-"/dev/ptmx", "/dev/kvm", "/dev/kqemu",
-"/dev/rtc", "/dev/hpet","/dev/net/tun"
-]
-
-删除默认的虚拟网桥：
-
-virsh net-destroy default
-virsh net-undefine default
-
-更新/etc/libvirt/libvirtd.conf配置文件：
-
-listen_tls = 0
-listen_tcp = 1
-auth_tcp = "none"
-
-编辑libvirtd_opts变量在/etc/init/libvirt-bin.conf配置文件中：
-
-env libvirtd_opts="-d -l"
-
-编辑/etc/default/libvirt-bin文件：
-
-libvirtd_opts="-d -l"
-
-重启libvirt服务使配置生效：
-
-service libvirt-bin restart
-
-
-
-4.4.OpenVSwitch
-
-安装OpenVSwitch软件包：
-
-apt-get install  openvswitch-switch openvswitch-datapath-dkms
-
-service openvswitch-switch restart
-
-创建网桥：
-ovs-vsctl add-br br-int
-
-
-4.5.Neutron
-
-安装Neutron OpenVSwitch代理：
-
-apt-get install neutron-plugin-openvswitch-agent
-
-编辑OVS配置文件/etc/neutron/plugins/openvswitch/ovs_neutron_plugin.ini:
-
-[OVS]
-#tenant_network_type = gre
-#tunnel_id_ranges = 1:1000
-#integration_bridge = br-int
-#tunnel_bridge = br-tun
-#local_ip = 192.168.1.3
-#enable_tunneling = True
-
-network_vlan_ranges=physnet1,physnet2:100:200
-tenant_network_type=vlan
-enable_tunneling=False
-integration_bridge=br-int
-bridge_mappings=physnet1:br-ex1,physnet2:br-ex2
-
-    
-#Firewall driver for realizing quantum security group function
-[SECURITYGROUP]
-firewall_driver = neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver
-
-编辑/etc/neutron/neutron.conf
-
-rabbit_host = 192.168.1.1
-
-[keystone_authtoken]
-auth_host = 192.168.1.1
-auth_port = 35357
-auth_protocol = http
-admin_tenant_name = service
-admin_user = neutron
-admin_password = service_pass
-signing_dir = /var/lib/neutron/keystone-signing
-
-[database]
-connection = mysql://neutronUser:neutronPass@192.168.1.1/neutron
-
-重启服务：
-service neutron-plugin-openvswitch-agent restart
-
-
-4.6.Nova
-
-安装nova组件：
-
-apt-get install nova-compute-kvm python-guestfs
-
-注意：如果你的宿主机不支持kvm虚拟化，可把nova-compute-kvm换成nova-compute-qemu
-同时/etc/nova/nova-compute.conf配置文件中的libvirt_type=qemu
-
-
-在/etc/nova/api-paste.ini配置文件中修改认证信息：
-
-[filter:authtoken]
-paste.filter_factory = keystoneclient.middleware.auth_token:filter_factory
-auth_host = 192.168.1.1
-auth_port = 35357
-auth_protocol = http
-admin_tenant_name = service
-admin_user = nova
-admin_password = service_pass
-signing_dirname = /tmp/keystone-signing-nova
-# Workaround for https://bugs.launchpad.net/nova/+bug/1154809
-auth_version = v2.0
-
-编辑修改/etc/nova/nova.conf
-
-[DEFAULT]
-logdir=/var/log/nova
-state_path=/var/lib/nova
-lock_path=/run/lock/nova
-verbose=True
-api_paste_config=/etc/nova/api-paste.ini
-compute_scheduler_driver=nova.scheduler.simple.SimpleScheduler
-rabbit_host=192.168.1.1
-nova_url=http://192.168.1.1:8774/v1.1/
-sql_connection=mysql://novaUser:novaPass@192.168.1.1/nova
-root_helper=sudo nova-rootwrap /etc/nova/rootwrap.conf
-
-# Auth
-use_deprecated_auth=false
-auth_strategy=keystone
-
-# Imaging service
-glance_api_servers=192.168.1.1:9292
-image_service=nova.image.glance.GlanceImageService
-
-# Vnc configuration
-novnc_enabled=true
-novncproxy_base_url=http://10.141.123.202:6080/vnc_auto.html
-novncproxy_port=6080
-vncserver_proxyclient_address=192.168.1.3                   #这是与控制节点不同的地方。
-vncserver_listen=0.0.0.0
-
-# Network settings
-network_api_class=nova.network.neutronv2.api.API
-neutron_url=http://192.168.1.1:9696
-neutron_auth_strategy=keystone
-neutron_admin_tenant_name=service
-neutron_admin_username=neutron
-neutron_admin_password=service_pass
-neutron_admin_auth_url=http://192.168.1.1:35357/v2.0
-libvirt_vif_driver=nova.virt.libvirt.vif.LibvirtHybridOVSBridgeDriver
-linuxnet_interface_driver=nova.network.linux_net.LinuxOVSInterfaceDriver
-#If you want Neutron + Nova Security groups
-firewall_driver=nova.virt.firewall.NoopFirewallDriver
-security_group_api=neutron
-#If you want Nova Security groups only, comment the two lines above and uncomment line -1-.
-#-1-firewall_driver=nova.virt.libvirt.firewall.IptablesFirewallDriver
-
-#Metadata
-service_neutron_metadata_proxy = True
-neutron_metadata_proxy_shared_secret = helloOpenStack
-
-# Compute #
-compute_driver=libvirt.LibvirtDriver
-
-# Cinder #
-volume_api_class=nova.volume.cinder.API
-osapi_volume_listen_port=5900
-
-重启nova-*服务：
-
-cd /etc/init.d/; for i in $( ls nova-* ); do service $i restart; done
-
-检查所有nova服务是否正常启动：
-
-nova-manage service list
-
-
-4.7. 安装监控服务计算代理ceilometer
-
-安装监控服务：
 apt-get install ceilometer-agent-compute
 
-配置修改/etc/nova/nova.conf:
+2) update /etc/nova/nova.conf:
 
 ...
 [DEFAULT]
@@ -1241,17 +1353,17 @@ notify_on_state_change=vm_and_task_state
 notification_driver=nova.openstack.common.notifier.rpc_notifier
 notification_driver=ceilometer.compute.nova_notifier
 
-编辑/etc/ceilometer/ceilometer.conf，配置计算节点上Ceilometer的选项：
+3) update /etc/ceilometer/ceilometer.conf
 
 [publisher_rpc]
 # Secret value for signing metering messages (string value)
-metering_secret = cefafd2288d0e4e43005         #之前生成的密码
+metering_secret = cefafd2288d0e4e43005         #from record toke before
 
 [DEFAULT]
-rabbit_host = 192.168.1.1
+rabbit_host = 192.168.0.1
 
 [keystone_authtoken]
-auth_host = 192.168.1.1
+auth_host = 192.168.0.1
 auth_port = 35357
 auth_protocol = http
 admin_tenant_name = service
@@ -1259,7 +1371,7 @@ admin_user = ceilometer
 admin_password = service_pass
 
 [service_credentials]
-os_auth_url = http://192.168.1.1:5000/v2.0
+os_auth_url = http://192.168.0.1:5000/v2.0
 os_username = ceilometer
 os_tenant_name = service
 os_password = service_pass
@@ -1269,19 +1381,20 @@ os_region_name = RegionOne
 log_dir = /var/log/ceilometer
 
 
-重启服务：
+4) restart service
+
+
 service ceilometer-agent-compute restart
 
 
 
+5. how to start VM
 
 
-5.创建VM
-
-5.1.flat network
+5.1 flat network sample
 
 
-1)设置环境变量：
+1) set env
 
 vi creds-admin
 
@@ -1289,7 +1402,7 @@ vi creds-admin
 export OS_TENANT_NAME=admin
 export OS_USERNAME=admin
 export OS_PASSWORD=admin_pass
-export OS_AUTH_URL="http://10.10.10.1:5000/v2.0/"
+export OS_AUTH_URL="http://10.141.71.201:5000/v2.0/"
 
 source creds-admin
 
@@ -1306,11 +1419,10 @@ keystone user-role-add --tenant-id $put_id_of_project_one  --user-id $put_id_of_
 
 3) create network
 
-neutron net-create Public1 --provider:network_type flat --provider:physical_network physnet1 --shared
-neutron subnet-create Public1 192.168.2.0/24 --disable-dhcp --allocation-pool start=192.168.2.100,end=192.168.2.220
+neutron net-create ext-network1 --provider:network_type flat --provider:physical_network physnet1 --shared
 
-neutron net-create Public2 --provider:network_type flat --provider:physical_network physnet2 --shared
-neutron subnet-create Public2 192.168.3.0/24 --disable-dhcp --allocation-pool start=192.168.3.100,end=192.168.3.220
+neutron subnet-create ext-network1 192.168.2.0/24 --disable-dhcp --allocation-pool start=192.168.2.100,end=192.168.2.220
+
 
 
 neutron net-list
@@ -1318,13 +1430,31 @@ neutron subnet-list
 
 
 4) go to web and create instance
-http://10.10.10.1/horizon
+http://10.141.71.201/horizon
+
+login as user_one:
 
 user: user_one
 password: user_one
 
 
-5) 去除ip限制
+we can also change env as new tenant
+
+vi creds-user
+
+export OS_TENANT_NAME=project_one
+export OS_USERNAME=user_one
+export OS_PASSWORD=user_one
+export OS_AUTH_URL="http://10.141.71.201:5000/v2.0/"
+
+
+source reds-user
+
+
+
+5) openstack restrict one vm eth port have one ip.
+usually we need many different ip address through one eth port.
+
 
 find iptables_firewall.py
 
@@ -1358,38 +1488,106 @@ echo $cmd
 
 chmod +x mkpy.sh
 
-./mkpy.sh firewall.py
-
-6) 虚拟机可以ping通外面，外面ping不通虚拟机的问题
-（可能是bug）
-
-解决方法：
-
-在web界面修改访问控制
-
-修改安全组default规则
-添加定制ICMP，TCP，UDP规则
-包括出口，入口
-端口-1
+./mkpy.sh iptables_firewall.py
 
 
-5.1.gre router network
 
-参考grizzly
+
+
+5.1 router network sample
+
+
+1) set env
+
+vim creds-admin
+
+#Paste the following:
+export OS_TENANT_NAME=admin
+export OS_USERNAME=admin
+export OS_PASSWORD=admin_pass
+export OS_AUTH_URL="http://10.141.71.201:5000/v2.0/"
+
+source creds-admin
+
+2) create tenant
+
+keystone tenant-create --name project_one
+
+keystone tenant-list
+keystone role-list
+
+keystone user-create --name=user_one --pass=user_one --tenant-id $put_id_of_project_one --email=user_one@domain.com
+keystone user-role-add --tenant-id $put_id_of_project_one  --user-id $put_id_of_user_one --role-id $put_id_of_member_role
+
+
+3) create network for tenant
+
+
+quantum net-create --tenant-id $put_id_of_project_one net_proj_one
+quantum net-list
+
+
+4) create a new subnet inside the new tenant network:
+
+quantum subnet-create --tenant-id $put_id_of_project_one net_proj_one 50.50.1.0/24
+quantum subnet-list
+
+
+5) Create a dhcp agent:
+
+quantum agent-list (to get the dhcp agent id)
+quantum dhcp-agent-network-add $dhcp_agent_id net_proj_one
+
+
+6) Create a router for the new tenant:
+
+quantum router-create --tenant-id $put_id_of_project_one router_proj_one
+quantum router-list
+
+
+7) Add the router to the running l3 agent (if it wasn't automatically added):
+
+quantum agent-list (to get the l3 agent id)
+quantum l3-agent-router-add $l3_agent_id router_proj_one
+
+8) Add the router to the subnet:
+
+quantum router-interface-add $put_router_proj_one_id_here $put_subnet_id_here
+
+9) Restart all quantum services:
+
+cd /etc/init.d/; for i in $( ls quantum-* ); do sudo service $i restart; done
+
+
+10) Create an external network with the tenant id belonging to the admin tenant (keystone tenant-list to get the appropriate id):
+
+neutron net-create --tenant-id $put_id_of_admin_tenant ext-net --provider:physical_network=physnet1 --provider:network_type=vlan --router:external=True  --provider:segmentation_id 2 
+
+
+notice: tenant-id is admin here
+
+
+11) Create a subnet for the floating ips:
+
+quantum subnet-create --tenant-id $put_id_of_admin_tenant --allocation-pool start=192.168.100.102,end=192.168.100.150 --gateway 192.168.100.1 ext_net 192.168.100.100/24 --enable_dhcp=False
+
+notice: tenant-id is admin here
+
+
+12) set your router's gateway to the external network:
+
+quantum router-gateway-set $put_router_proj_one_id_here $put_id_of_ext_net_here
+
+
  
 
-6.参考文档：
+6. reference
+
 1.
+
 http://docs.openstack.org/havana/install-guide/install/apt/openstack-install-guide-apt-havana.pdf
 
 2.
 https://github.com/mseknibilel/OpenStack-Grizzly-Install-Guide/blob/OVS_MultiNode/OpenStack_Grizzly_Install_Guide.rst
 
-3.
-http://www.cnblogs.com/awy-blog/p/3447176.html
-
-4.
-http://panpei.net.cn/2014/03/08/ceilometer-deploy-guide/
-
-5.
-http://www.nemosky.com/job/1331.html
+ 
