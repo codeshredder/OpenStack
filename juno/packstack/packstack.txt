@@ -1,0 +1,409 @@
+
+
+
+1) proxy:
+
+vi /etc/yum.conf
+ 
+proxy=http://10.141.123.182:8989
+
+
+vi /etc/environment
+
+http_proxy=http://10.141.123.182:8989
+https_proxy=http://10.141.123.182:8989
+no_proxy=localhost,localhost.localdomain,127.0.0.1,10.0.0.0/8
+
+
+setenforce 0
+sed -i -e 's/SELINUX=enforcing/SELINUX=disabled/g' /etc/selinux/config
+
+
+#chkconfig --list NetworkManager
+#service NetworkManager stop
+#chkconfig NetworkManager off
+
+
+#vi /etc/sysconfig/network-scripts/
+#NM_CONTROLLED=no
+#ONBOOT=yes
+
+
+2) easy_install proxy
+
+
+主站似乎连不上，可用更换成镜像： http://www.pypi-mirrors.org/ 
+http://pypi.mirrors.ustc.edu.cn/simple
+需要用us4代理
+
+easy_install -i http://pypi.mirrors.ustc.edu.cn/simple/ netaddr
+
+
+vi ~/.pydistutils.cfg
+
+[easy_install]
+index_url = http://pypi.mirrors.ustc.edu.cn/simple
+
+
+pip:
+
+vi ~/.pip/pip.conf
+
+[global]
+index-url = http://pypi.mirrors.ustc.edu.cn/simple
+
+
+
+===============================
+
+Enable epel repo:
+
+
+yum install -y epel-release
+
+or
+
+wget http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm
+rpm -Uvh epel-release-7-5.noarch.rpm
+
+
+
+vi /etc/yum.repos.d/epel.repo
+
+[epel]
+enabled=1
+
+
+-------
+
+
+yum -y install https://rdo.fedorapeople.org/rdo-release.rpm
+
+
+yum -y update
+
+
+
+==============================
+
+
+yum install -y git python-setuptools
+
+git clone https://github.com/stackforge/packstack.git
+cd packstack
+git checkout -b juno origin/juno
+
+================= code ===============
+
+1)
+
+find ./ -name "*.*" | xargs grep "cirros"
+
+./packstack/plugins/provision_700.py:    'http://download.cirros-cloud.net/0.3.3/cirros-0.3.3-x86_64-disk.img'
+
+->
+
+./packstack/plugins/provision_700.py:    '/home/openstack/images/cirros-0.3.3-x86_64-disk.img'
+
+
+2)
+
+git 补丁制作和使用
+
+git diff  > ../patch_cirros
+git apply ../patch_cirros
+
+
+
+=========================================
+
+
+
+cd packstack
+python setup.py install
+python setup.py install_puppet_modules
+
+
+#Cloning https://github.com/redhat-openstack/openstack-puppet-modules.git to /usr/share/openstack-puppet/modules
+
+
+
+
+packstack --gen-answer-file=answer.conf
+
+packstack --answer-file=answer.conf
+
+
+packstack --allinone
+
+packstack --install-hosts=10.143.37.216
+
+
+
+service openstack-service restart
+
+
+
+packstack --install-hosts=<local ipaddr> \
+            --novanetwork-pubif=<dev>  \
+            --novacompute-privif=lo \
+            --novanetwork-privif=lo \
+            --os-swift-install=y  \ 
+            --nagios-install=y
+
+
+
+
+5)
+
+source /root/keystonerc_admin
+
+
+
+Additional information:
+ * A new answerfile was created in: /root/packstack-answers-20141217-203420.txt
+ * Time synchronization installation was skipped. Please note that unsynchronized time on server instances might be problem for some OpenStack components.
+ * File /root/keystonerc_admin has been created on OpenStack client host 10.141.123.185. To use the command line tools you need to source the file.
+ * To access the OpenStack Dashboard browse to http://10.141.123.185/dashboard .
+Please, find your login credentials stored in the keystonerc_admin in your home directory.
+ * To use Nagios, browse to http://10.141.123.185/nagios username: nagiosadmin, password: 358342ada5eb42b3
+ * The installation log file is available at: /var/tmp/packstack/20141217-203420-xru8wq/openstack-setup.log
+ * The generated manifests are available at: /var/tmp/packstack/20141217-203420-xru8wq/manifests
+
+
+
+
+change nagios password:
+
+htpasswd -b /etc/nagios/passwd nagiosadmin <password>
+
+
+
+#########################  multi-node
+
+packstack --answer-file=multinode.txt
+
+packstack --install-hosts=10.143.37.210,10.143.37.211,10.143.37.212,10.143.37.213
+
+packstack --install-hosts=10.143.39.44,10.143.39.46,10.143.39.47
+
+
+
+nova service-list
+nova host-list
+
+
+/etc/sysconfig/network-scripts/ifcfg-enp130s0f0
+
+/etc/sysconfig/network-scripts/ifcfg-ens3f0
+
+
+#########################
+
+取消有些镜像的初次密码
+
+启动云主机，创建后脚本
+ubuntu:
+
+#!/bin/sh
+passwd ubuntu<<EOF
+ubuntu
+ubuntu
+EOF
+sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g' /etc/ssh/sshd_config
+service ssh restart
+
+-----
+centos:
+
+
+#!/bin/sh
+passwd centos<<EOF
+centos
+centos
+EOF
+sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/g' /etc/ssh/sshd_config
+sed -i 's/PermitRootLogin without-password/PermitRootLogin yes/g' /etc/ssh/sshd_config
+service ssh restart
+-------------------------
+
+vi /etc/ssh/sshd_config
+
+PasswordAuthentication yes
+PermitRootLogin yes
+
+===========================
+
+losetup -l
+
+pvcreate /dev/sdc1
+vgcreate cinder-volumes /dev/sdc1
+
+================================
+
+vi /etc/sysconfig/network-scripts/ifcfg-enp2s0f1
+
+BOOTPROTO=none
+ONBOOT=yes
+
+ovs-vsctl add-port br-ex enp2s0f1
+
+#ethtool -K enp2s0f1 gro off
+
+
+===========================
+
+需要配置安全组规则，否则外面访问不了虚拟机
+
+default组
+
+TCP，UDP, ICMP 入出共6条规则。参数-1
+
+
+=============== router network 1 ============
+
+
+neutron net-list
+neutron subnet-list
+
+neutron net-create int-net
+neutron subnet-create --name int-subnet int-net 50.50.1.0/24
+
+#neutron agent-list (to get the dhcp agent id)
+#neutron dhcp-agent-network-add $dhcp_agent_id int-net
+
+
+neutron router-create router1
+neutron router-list
+
+neutron agent-list
+neutron l3-agent-router-add $l3_agent_id router1
+
+
+neutron router-interface-add router1 int-subnet
+
+
+neutron net-create ext-net --shared --router:external=True
+neutron subnet-create ext-net --name ext-subnet --allocation-pool start=10.141.123.240,end=10.141.123.250 --disable-dhcp --gateway 10.141.123.1 10.141.123.0/24
+
+
+neutron router-gateway-set router1 ext-net
+
+
+
+================ router network 2 =====================
+
+neutron net-list
+neutron subnet-list
+
+neutron net-create int-net
+neutron subnet-create --name int-subnet int-net 50.50.1.0/24
+
+
+#neutron agent-list (to get the dhcp agent id)
+#neutron dhcp-agent-network-add $dhcp_agent_id int-net
+
+
+neutron router-create router1
+neutron router-list
+
+neutron agent-list
+neutron l3-agent-router-add $l3_agent_id router1
+
+
+neutron router-interface-add router1 int-subnet
+
+
+neutron net-create ext-net --shared --router:external=True
+neutron subnet-create ext-net --name ext-subnet 10.143.36.0/22 --allocation-pool start=10.143.37.215,end=10.143.37.250 --gateway 10.143.36.1 --disable-dhcp
+
+
+neutron router-gateway-set router1 ext-net
+
+
+=======================
+
+neutron net-create fuel-net
+neutron subnet-create --name fuel-subnet fuel-net 192.168.0.0/24 --disable-dhcp
+
+
+========= flat network ======
+
+
+vi /etc/neutron/plugins/ml2/ml2_conf.ini
+
+[ml2]
+type_drivers = flat,vxlan
+tenant_network_types = vxlan
+mechanism_drivers = openvswitch
+
+
+[ml2_type_flat]
+flat_networks = *
+
+[securitygroup]
+enable_security_group = True
+enable_ipset = True
+
+[ml2_type_vxlan]
+...
+vni_ranges = 1000:2000
+
+
+
+vi /etc/neutron/plugins/openvswitch/ovs_neutron_plugin.ini
+
+[ovs]
+network_vlan_ranges = physnet1:1000:2999
+bridge_mappings = physnet1:br-ex
+
+
+
+ovs-vsctl add-port br-ex enp130s0f1
+
+
+service neutron-openvswitch-agent restart
+service neutron-openvswitch-agent status
+
+service neutron-server restart
+service neutron-server status
+
+
+
+======
+
+
+neutron net-create sharednet1 --shared --provider:network_type flat --provider:physical_network physnet1
+neutron subnet-create --name sharedsubnet1 sharednet1 10.143.36.0/22 --allocation-pool start=10.143.39.29,end=10.143.39.48 --gateway 10.143.36.1
+
+neutron subnet-create --name sharedsubnet1 sharednet1 10.143.36.0/22 --allocation-pool start=10.143.39.49,end=10.143.39.58 --gateway 10.143.36.1
+
+
+
+
+
+================
+
+
+制作镜像
+
+1） centos
+
+yum -y groupinstall Virtualization "Virtualization Client"
+yum -y install libvirt
+
+
+使用 virtual machine manager创建虚拟机
+
+# virsh net-define /usr/share/libvirt/networks/default.xml
+Network default defined from /usr/share/libvirt/networks/default.xml
+# virsh net-autostart default
+Network default marked as autostarted
+# virsh net-start default
+Network default started
+
+===========
+
+glance image-create --name "fuel-master" --file fuel-master.qcow2 --disk-format qcow2 --container-format bare --is-public True --progress
+glance image-create --name "centos7diy" --file centos7.qcow2 --disk-format qcow2 --container-format bare --is-public True --progress
+

@@ -1,0 +1,60 @@
+
+# important
+hostnamectl --static set-hostname openstack1.localdomain
+
+
+vi /etc/hosts
+
+10.143.37.210 openstack1.localdomain
+10.143.37.211 openstack2.localdomain
+10.143.37.212 openstack3.localdomain
+10.143.37.213 openstack4.localdomain
+
+
+# no need
+#systemctl stop NetworkManager
+#systemctl disable NetworkManager
+#systemctl enable network
+
+
+
+yum update -y
+
+yum install -y https://rdo.fedorapeople.org/rdo-release.rpm
+
+yum install -y openstack-packstack
+
+
+
+1)
+packstack --allinone
+
+packstack --answer-file=allone.txt
+
+
+2)
+
+vi $youranswerfile
+NOTE: by default $youranswerfile is called packstack-answer-$date-$time.txt
+
+CONFIG_NOVA_COMPUTE_PRIVIF=ens3f0
+CONFIG_NOVA_NETWORK_PRIVIF=ens3f0
+CONFIG_NOVA_COMPUTE_HOSTS=10.143.37.210,10.143.37.211
+CONFIG_NOVA_NETWORK_HOSTS=10.143.37.210
+
+EXCLUDE_SERVERS=10.143.37.211
+
+
+packstack --answer-file=multinode.txt
+
+
+
+------
+
+
+nova service-list
+nova host-list
+nova-manage service list
+
+
+
